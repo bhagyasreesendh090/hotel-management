@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash     TEXT NOT NULL,
   full_name         VARCHAR(255) NOT NULL,
   role              VARCHAR(32) NOT NULL CHECK (role IN (
-                      'super_admin','branch_manager','sales_manager','sales_executive',
+                      'super_admin','gm','sales_agent',
+                      'branch_manager','sales_manager','sales_executive',
                       'banquet_coordinator','front_desk','finance'
                     )),
   phone             VARCHAR(32),

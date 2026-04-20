@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param, query as qv, validationResult } from 'express-validator';
 import { pool, query } from '../db/pool.js';
 import { requireAuth, requireRoles } from '../middleware/auth.js';
+import { canAccessAllProperties } from '../constants/roles.js';
 import { availabilityByRoomType } from '../services/availability.js';
 import {
   calcLineAmounts,
@@ -16,7 +17,7 @@ router.use(requireAuth);
 
 function assertPropertyAccess(user, propertyId) {
   const pid = Number(propertyId);
-  if (['super_admin', 'sales_manager', 'finance'].includes(user.role)) return true;
+  if (canAccessAllProperties(user.role)) return true;
   return user.propertyIds?.includes(pid);
 }
 
@@ -212,7 +213,7 @@ router.get('/bookings', qv('property_id').optional().isInt(), async (req, res) =
   if (propertyId) {
     params.push(propertyId);
     sql += ` AND b.property_id = $${params.length}`;
-  } else if (!['super_admin', 'sales_manager', 'finance'].includes(req.user.role)) {
+  } else if (!canAccessAllProperties(req.user.role)) {
     if (!req.user.propertyIds?.length) return res.json({ bookings: [] });
     params.push(req.user.propertyIds);
     sql += ` AND b.property_id = ANY($${params.length}::int[])`;

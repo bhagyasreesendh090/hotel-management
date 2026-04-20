@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param, query as qv, validationResult } from 'express-validator';
 import { pool, query } from '../db/pool.js';
 import { requireAuth, requireRoles } from '../middleware/auth.js';
+import { canAccessAllProperties } from '../constants/roles.js';
 import { nextDsNumber } from '../services/dsNumber.js';
 import { splitCgstSgst } from '../services/financial.js';
 
@@ -10,7 +11,7 @@ router.use(requireAuth);
 
 function assertPropertyAccess(user, propertyId) {
   const pid = Number(propertyId);
-  if (['super_admin', 'sales_manager', 'finance'].includes(user.role)) return true;
+  if (canAccessAllProperties(user.role)) return true;
   return user.propertyIds?.includes(pid);
 }
 
@@ -27,7 +28,7 @@ router.get(
     if (propertyId) {
       params.push(propertyId);
       sql += ` AND i.property_id = $${params.length}`;
-    } else if (!['super_admin', 'sales_manager', 'finance'].includes(req.user.role)) {
+    } else if (!canAccessAllProperties(req.user.role)) {
       if (!req.user.propertyIds?.length) return res.json({ invoices: [] });
       params.push(req.user.propertyIds);
       sql += ` AND i.property_id = ANY($${params.length}::int[])`;
@@ -162,6 +163,34 @@ router.get(
     sql += ` ORDER BY created_at DESC LIMIT 300`;
     const { rows } = await query(sql, params);
     res.json({ payments: rows });
+  }
+);
+
+router.get(
+  '/cancellations',
+  qv('property_id').optional().isInt(),
+  async (req, res) => {
+    const propertyId = req.query.property_id ? Number(req.query.property_id) : null;
+    let sql = `
+      SELECT c.*, b.property_id
+      FROM cancellations c
+      JOIN bookings b ON b.id = c.booking_id
+      WHERE 1=1`;
+    const params = [];
+    if (propertyId) {
+      if (!assertPropertyAccess(req.user, propertyId)) {
+        return res.status(403).json({ error: 'Property access denied' });
+      }
+      params.push(propertyId);
+      sql += ` AND b.property_id = $${params.length}`;
+    } else if (!canAccessAllProperties(req.user.role)) {
+      if (!req.user.propertyIds?.length) return res.json({ cancellations: [] });
+      params.push(req.user.propertyIds);
+      sql += ` AND b.property_id = ANY($${params.length}::int[])`;
+    }
+    sql += ` ORDER BY c.cancelled_at DESC LIMIT 200`;
+    const { rows } = await query(sql, params);
+    res.json({ cancellations: rows });
   }
 );
 

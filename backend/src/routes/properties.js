@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import { query } from '../db/pool.js';
 import { requireAuth, requireRoles } from '../middleware/auth.js';
+import { canAccessAllProperties } from '../constants/roles.js';
 import { writeAudit } from '../utils/audit.js';
 
 const router = Router();
@@ -9,7 +10,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', async (req, res) => {
-  const unrestricted = ['super_admin', 'sales_manager', 'finance'].includes(req.user.role);
+  const unrestricted = canAccessAllProperties(req.user.role);
   if (unrestricted) {
     const { rows } = await query(
       `SELECT id, code, name, address, gstin, email_from, active FROM properties WHERE active = TRUE ORDER BY code`

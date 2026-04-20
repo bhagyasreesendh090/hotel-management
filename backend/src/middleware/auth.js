@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { query } from '../db/pool.js';
+import { hasFullAppAccess, canAccessAllProperties } from '../constants/roles.js';
 
 export async function requireAuth(req, res, next) {
   const h = req.headers.authorization;
@@ -32,7 +33,7 @@ export async function requireAuth(req, res, next) {
 export function requireRoles(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-    if (roles.includes(req.user.role) || req.user.role === 'super_admin') {
+    if (hasFullAppAccess(req.user.role) || roles.includes(req.user.role)) {
       return next();
     }
     return res.status(403).json({ error: 'Forbidden' });
@@ -44,7 +45,7 @@ export function canAccessProperty(propertyId) {
   return (req, res, next) => {
     const pid = Number(propertyId ?? req.params.propertyId ?? req.body?.property_id);
     if (!pid) return next();
-    const unrestricted = ['super_admin', 'sales_manager', 'finance'].includes(req.user.role);
+    const unrestricted = canAccessAllProperties(req.user.role);
     if (unrestricted) return next();
     if (!req.user.propertyIds?.length) {
       return res.status(403).json({ error: 'No property access configured' });

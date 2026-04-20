@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query as qv, validationResult } from 'express-validator';
 import { query } from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
+import { canAccessAllProperties } from '../constants/roles.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -12,7 +13,7 @@ function propertyFilterSql(req, params, alias = '') {
     params.push(Number(req.query.property_id));
     return ` AND ${col} = $${params.length}`;
   }
-  if (!['super_admin', 'sales_manager', 'finance'].includes(req.user.role)) {
+  if (!canAccessAllProperties(req.user.role)) {
     if (!req.user.propertyIds?.length) return ' AND 1=0';
     params.push(req.user.propertyIds);
     return ` AND ${col} = ANY($${params.length}::int[])`;
@@ -37,10 +38,11 @@ router.get(
     );
 
     const leadsParams = [];
-    const pfL = propertyFilterSql(req, leadsParams, 'l');
+    const pfL = propertyFilterSql(req, leadsParams, 'lp');
     const leadsOpen = await query(
-      `SELECT COUNT(*)::int AS count
+      `SELECT COUNT(DISTINCT l.id)::int AS count
        FROM leads l
+       LEFT JOIN lead_properties lp ON lp.lead_id = l.id
        WHERE l.status IN ('new','in_progress','quotation_sent','negotiating') ${pfL}`,
       leadsParams
     );
