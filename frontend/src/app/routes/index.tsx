@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Navigate } from 'react-router';
 import ProtectedRoute from './ProtectedRoute';
 import AppLayout from '../layout/AppLayout';
 
@@ -9,7 +9,6 @@ import PropertiesPage from '../pages/properties/PropertiesPage';
 
 // CRS Pages
 import RoomTypesPage from '../pages/crs/RoomTypesPage';
-import RoomsPage from '../pages/crs/RoomsPage';
 import AvailabilityPage from '../pages/crs/AvailabilityPage';
 import BookingsPage from '../pages/crs/BookingsPage';
 
@@ -34,14 +33,28 @@ import CancellationsPage from '../pages/finance/CancellationsPage';
 import PipelineReportPage from '../pages/reports/PipelineReportPage';
 import GSTReportPage from '../pages/reports/GSTReportPage';
 import OccupancyReportPage from '../pages/reports/OccupancyReportPage';
+import PublicBookingPage from '../pages/public/PublicBookingPage';
+import AppErrorPage from '../pages/errors/AppErrorPage';
 
 export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <AppErrorPage />,
+  },
+  {
+    path: '/public/book',
+    element: <PublicBookingPage />,
+    errorElement: <AppErrorPage />,
+  },
+  {
+    path: '/public/book/:propertyRef',
+    element: <PublicBookingPage />,
+    errorElement: <AppErrorPage />,
   },
   {
     path: '/',
+    errorElement: <AppErrorPage />,
     element: (
       <ProtectedRoute>
         <AppLayout />
@@ -64,10 +77,6 @@ export const router = createBrowserRouter([
       {
         path: 'crs/room-types',
         element: <RoomTypesPage />,
-      },
-      {
-        path: 'crs/rooms',
-        element: <RoomsPage />,
       },
       {
         path: 'crs/availability',
@@ -130,6 +139,15 @@ export const router = createBrowserRouter([
         path: 'reports/occupancy',
         element: <OccupancyReportPage />,
       },
+      {
+        path: '*',
+        element: <Navigate to="/public/book" replace />,
+      },
     ],
+  },
+  {
+    path: '*',
+    element: <Navigate to="/public/book" replace />,
+    errorElement: <AppErrorPage />,
   },
 ]);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { formatRoleLabel } from '../lib/roles';
 import { useProperty } from '../context/PropertyContext';
 import { LogOut, Bell } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -53,9 +54,7 @@ const TopBar: React.FC = () => {
           <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
             <div className="text-right">
               <p className="text-sm font-semibold text-gray-900">{user?.full_name}</p>
-              <p className="text-xs text-gray-600 capitalize">
-                {user?.role?.replace('_', ' ')}
-              </p>
+              <p className="text-xs text-gray-600">{formatRoleLabel(user?.role)}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white font-semibold shadow-lg">
               {user?.full_name?.split(' ').map((n) => n[0]).join('').toUpperCase()}

@@ -25,24 +25,24 @@ const PaymentsPage: React.FC = () => {
     transaction_id: '',
   });
 
-  const { data: payments, isLoading } = useQuery({
+  const { data: payments = [], isLoading } = useQuery({
     queryKey: ['payments', selectedPropertyId],
     queryFn: async () => {
-      const response = await apiClient.get('/api/finance/payments', {
+      const response = await apiClient.get<{ payments: Record<string, unknown>[] }>('/api/finance/payments', {
         params: { property_id: selectedPropertyId },
       });
-      return response.data;
+      return response.data.payments ?? [];
     },
     enabled: !!selectedPropertyId,
   });
 
-  const { data: invoices } = useQuery({
+  const { data: invoices = [] } = useQuery({
     queryKey: ['invoices', selectedPropertyId],
     queryFn: async () => {
-      const response = await apiClient.get('/api/finance/invoices', {
+      const response = await apiClient.get<{ invoices: Record<string, unknown>[] }>('/api/finance/invoices', {
         params: { property_id: selectedPropertyId },
       });
-      return response.data;
+      return response.data.invoices ?? [];
     },
     enabled: !!selectedPropertyId,
   });

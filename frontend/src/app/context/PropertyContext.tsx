@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 
 export interface Property {
   id: number;
@@ -24,13 +25,17 @@ interface PropertyContextType {
 const PropertyContext = createContext<PropertyContextType | undefined>(undefined);
 
 export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token, isLoading: authLoading } = useAuth();
   const [selectedPropertyId, setSelectedPropertyIdState] = useState<number | null>(() => {
     const saved = localStorage.getItem('selectedPropertyId');
     return saved ? parseInt(saved, 10) : null;
   });
 
+  const canFetchProperties = Boolean(token) && !authLoading;
+
   const { data: properties = [], isLoading, error } = useQuery<Property[]>({
     queryKey: ['properties'],
+    enabled: canFetchProperties,
     queryFn: async () => {
       const response = await apiClient.get<PropertiesResponse>('/api/properties');
       const propertyList = Array.isArray(response.data?.properties) ? response.data.properties : [];
@@ -38,11 +43,15 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     },
   });
 
-  // Automatically select the first property if none is selected
+  // Ensure selected property exists (fixes stale localStorage IDs so pages can load)
   useEffect(() => {
-    if (!isLoading && properties.length > 0 && !selectedPropertyId) {
-      setSelectedPropertyIdState(properties[0].id);
-      localStorage.setItem('selectedPropertyId', properties[0].id.toString());
+    if (isLoading || properties.length === 0) return;
+    const valid =
+      selectedPropertyId != null && properties.some((p) => p.id === selectedPropertyId);
+    if (!valid) {
+      const first = properties[0].id;
+      setSelectedPropertyIdState(first);
+      localStorage.setItem('selectedPropertyId', String(first));
     }
   }, [isLoading, properties, selectedPropertyId]);
 

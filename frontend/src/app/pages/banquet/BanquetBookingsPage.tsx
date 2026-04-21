@@ -12,56 +12,62 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil, XCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
+
+type BanquetBooking = Record<string, unknown> & { id: number; status: string };
+
+const emptyForm = {
+  venue_id: '',
+  event_category: 'social' as 'corporate' | 'social' | 'group',
+  event_date: '',
+  guaranteed_pax: '',
+  notes: '',
+};
 
 const BanquetBookingsPage: React.FC = () => {
   const { selectedPropertyId } = useProperty();
   const queryClient = useQueryClient();
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [newBooking, setNewBooking] = useState({
-    venue_id: '',
-    client_name: '',
-    client_email: '',
-    client_phone: '',
-    event_type: '',
-    event_date: '',
-    start_time: '',
-    end_time: '',
-    expected_guests: '',
-    total_amount: '',
-    notes: '',
-  });
 
-  const { data: bookings, isLoading } = useQuery({
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<BanquetBooking | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [editStatus, setEditStatus] = useState('');
+  const [editPax, setEditPax] = useState('');
+
+  const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['banquetBookings', selectedPropertyId],
     queryFn: async () => {
-      const response = await apiClient.get('/api/banquet/banquet-bookings', {
-        params: { property_id: selectedPropertyId },
-      });
-      return response.data;
+      const response = await apiClient.get<{ banquet_bookings: BanquetBooking[] }>(
+        '/api/banquet/banquet-bookings',
+        { params: { property_id: selectedPropertyId } }
+      );
+      return response.data.banquet_bookings ?? [];
     },
     enabled: !!selectedPropertyId,
   });
 
-  const { data: venues } = useQuery({
+  const { data: venues = [] } = useQuery({
     queryKey: ['venues', selectedPropertyId],
     queryFn: async () => {
-      const response = await apiClient.get('/api/banquet/venues', {
+      const response = await apiClient.get<{ venues: Record<string, unknown>[] }>('/api/banquet/venues', {
         params: { property_id: selectedPropertyId },
       });
-      return response.data;
+      return response.data.venues ?? [];
     },
     enabled: !!selectedPropertyId,
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: typeof form) => {
       const response = await apiClient.post('/api/banquet/banquet-bookings', {
-        ...data,
-        venue_id: parseInt(data.venue_id),
-        expected_guests: parseInt(data.expected_guests),
-        total_amount: parseFloat(data.total_amount),
+        property_id: selectedPropertyId,
+        venue_id: parseInt(data.venue_id, 10),
+        event_date: data.event_date,
+        event_category: data.event_category,
+        guaranteed_pax: data.guaranteed_pax ? parseInt(data.guaranteed_pax, 10) : null,
       });
       return response.data;
     },
@@ -69,59 +75,55 @@ const BanquetBookingsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['banquetBookings'] });
       toast.success('Booking created successfully');
       setIsCreateDialogOpen(false);
-      setNewBooking({
-        venue_id: '',
-        client_name: '',
-        client_email: '',
-        client_phone: '',
-        event_type: '',
-        event_date: '',
-        start_time: '',
-        end_time: '',
-        expected_guests: '',
-        total_amount: '',
-        notes: '',
-      });
+      setForm(emptyForm);
     },
-    onError: () => {
-      toast.error('Failed to create booking');
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error ?? 'Failed to create booking';
+      toast.error(msg);
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const response = await apiClient.patch(`/api/banquet/banquet-bookings/${id}`, { status });
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, status, guaranteed_pax }: { id: number; status: string; guaranteed_pax?: number | null }) => {
+      const response = await apiClient.patch(`/api/banquet/banquet-bookings/${id}`, {
+        status,
+        ...(guaranteed_pax !== undefined ? { guaranteed_pax } : {}),
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['banquetBookings'] });
-      toast.success('Status updated');
+      toast.success('Booking updated');
+      setIsEditDialogOpen(false);
+      setIsCancelDialogOpen(false);
+      setSelectedBooking(null);
     },
-    onError: () => {
-      toast.error('Failed to update status');
-    },
+    onError: () => toast.error('Failed to update booking'),
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate(newBooking);
+  const openEdit = (booking: BanquetBooking) => {
+    setSelectedBooking(booking);
+    setEditStatus(booking.status);
+    setEditPax(booking.guaranteed_pax != null ? String(booking.guaranteed_pax) : '');
+    setIsEditDialogOpen(true);
+  };
+
+  const openCancel = (booking: BanquetBooking) => {
+    setSelectedBooking(booking);
+    setIsCancelDialogOpen(true);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'CONF-P':
+      case 'CONF-U': return 'bg-green-100 text-green-800';
+      case 'TENT':
+      case 'QTN-HOLD': return 'bg-yellow-100 text-yellow-800';
+      case 'CXL': return 'bg-red-100 text-red-800';
+      case 'INQ': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-blue-50 text-blue-800';
     }
   };
-
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -134,7 +136,7 @@ const BanquetBookingsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Banquet Bookings</h1>
           <p className="text-gray-500 mt-1">Manage event bookings</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => { setForm(emptyForm); setIsCreateDialogOpen(true); }}>
           <Plus className="w-4 h-4 mr-2" />
           New Booking
         </Button>
@@ -142,196 +144,204 @@ const BanquetBookingsPage: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Bookings</CardTitle>
+          <CardTitle>All Bookings ({bookings.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Venue</TableHead>
-                <TableHead>Event Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Guests</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {bookings?.map((booking: any) => (
-                <TableRow key={booking.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{booking.client_name}</div>
-                      <div className="text-sm text-gray-500">{booking.client_phone}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{booking.venue_name}</TableCell>
-                  <TableCell className="capitalize">{booking.event_type}</TableCell>
-                  <TableCell>{format(new Date(booking.event_date), 'MMM dd, yyyy')}</TableCell>
-                  <TableCell>{booking.expected_guests}</TableCell>
-                  <TableCell>₹{booking.total_amount}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(booking.status)}>
-                      {booking.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={booking.status}
-                      onValueChange={(value) => updateStatusMutation.mutate({ id: booking.id, status: value })}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
+          {bookings.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No banquet bookings found.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Venue</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Pax</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {bookings.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell className="font-medium">{String(booking.venue_name ?? '—')}</TableCell>
+                    <TableCell className="capitalize">{String(booking.event_category ?? '')}</TableCell>
+                    <TableCell>
+                      {booking.event_date
+                        ? format(new Date(String(booking.event_date)), 'MMM dd, yyyy')
+                        : '—'}
+                    </TableCell>
+                    <TableCell>{booking.guaranteed_pax != null ? String(booking.guaranteed_pax) : '—'}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(String(booking.status ?? ''))}>
+                        {String(booking.status ?? '')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        {booking.status !== 'CXL' && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(booking)}
+                              title="Edit Status / Pax"
+                            >
+                              <Pencil className="w-4 h-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openCancel(booking)}
+                              title="Cancel Booking"
+                            >
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
+      {/* Create Booking Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create Banquet Booking</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(form); }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="venue_id">Venue</Label>
-                <Select
-                  value={newBooking.venue_id}
-                  onValueChange={(value) => setNewBooking({ ...newBooking, venue_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select venue" />
-                  </SelectTrigger>
+                <Label>Venue *</Label>
+                <Select value={form.venue_id} onValueChange={(value) => setForm({ ...form, venue_id: value })}>
+                  <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
                   <SelectContent>
-                    {venues?.map((venue: any) => (
-                      <SelectItem key={venue.id} value={venue.id.toString()}>
-                        {venue.name}
+                    {venues.map((venue) => (
+                      <SelectItem key={venue.id as number} value={String(venue.id)}>
+                        {String(venue.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="event_type">Event Type</Label>
-                <Input
-                  id="event_type"
-                  value={newBooking.event_type}
-                  onChange={(e) => setNewBooking({ ...newBooking, event_type: e.target.value })}
-                  placeholder="Wedding, Conference, etc."
-                  required
-                />
+                <Label>Event Category *</Label>
+                <Select value={form.event_category} onValueChange={(value: 'corporate' | 'social' | 'group') => setForm({ ...form, event_category: value })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="corporate">Corporate</SelectItem>
+                    <SelectItem value="social">Social</SelectItem>
+                    <SelectItem value="group">Group</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="client_name">Client Name</Label>
-                <Input
-                  id="client_name"
-                  value={newBooking.client_name}
-                  onChange={(e) => setNewBooking({ ...newBooking, client_name: e.target.value })}
-                  required
-                />
+                <Label htmlFor="event_date">Event Date *</Label>
+                <Input id="event_date" type="date" value={form.event_date} onChange={(e) => setForm({ ...form, event_date: e.target.value })} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="client_email">Email</Label>
-                <Input
-                  id="client_email"
-                  type="email"
-                  value={newBooking.client_email}
-                  onChange={(e) => setNewBooking({ ...newBooking, client_email: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="client_phone">Phone</Label>
-                <Input
-                  id="client_phone"
-                  value={newBooking.client_phone}
-                  onChange={(e) => setNewBooking({ ...newBooking, client_phone: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="event_date">Event Date</Label>
-                <Input
-                  id="event_date"
-                  type="date"
-                  value={newBooking.event_date}
-                  onChange={(e) => setNewBooking({ ...newBooking, event_date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="start_time">Start Time</Label>
-                <Input
-                  id="start_time"
-                  type="time"
-                  value={newBooking.start_time}
-                  onChange={(e) => setNewBooking({ ...newBooking, start_time: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="end_time">End Time</Label>
-                <Input
-                  id="end_time"
-                  type="time"
-                  value={newBooking.end_time}
-                  onChange={(e) => setNewBooking({ ...newBooking, end_time: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="expected_guests">Expected Guests</Label>
-                <Input
-                  id="expected_guests"
-                  type="number"
-                  value={newBooking.expected_guests}
-                  onChange={(e) => setNewBooking({ ...newBooking, expected_guests: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="total_amount">Total Amount (₹)</Label>
-                <Input
-                  id="total_amount"
-                  type="number"
-                  step="0.01"
-                  value={newBooking.total_amount}
-                  onChange={(e) => setNewBooking({ ...newBooking, total_amount: e.target.value })}
-                  required
-                />
+                <Label htmlFor="guaranteed_pax">Expected Guests</Label>
+                <Input id="guaranteed_pax" type="number" value={form.guaranteed_pax} onChange={(e) => setForm({ ...form, guaranteed_pax: e.target.value })} />
               </div>
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={newBooking.notes}
-                  onChange={(e) => setNewBooking({ ...newBooking, notes: e.target.value })}
-                />
+                <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create'}
+                {createMutation.isPending ? 'Creating...' : 'Create Booking'}
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Booking</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INQ">Inquiry (INQ)</SelectItem>
+                  <SelectItem value="QTN-HOLD">Quotation Hold (QTN-HOLD)</SelectItem>
+                  <SelectItem value="TENT">Tentative (TENT)</SelectItem>
+                  <SelectItem value="CONF-U">Confirmed Unpaid (CONF-U)</SelectItem>
+                  <SelectItem value="CONF-P">Confirmed Paid (CONF-P)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_pax">Guaranteed Pax</Label>
+              <Input id="edit_pax" type="number" value={editPax} onChange={(e) => setEditPax(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (selectedBooking) {
+                    updateMutation.mutate({
+                      id: selectedBooking.id,
+                      status: editStatus,
+                      guaranteed_pax: editPax ? parseInt(editPax, 10) : null,
+                    });
+                  }
+                }}
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-500" />
+              Cancel Booking
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to cancel the banquet booking at{' '}
+              <span className="font-semibold">{String(selectedBooking?.venue_name ?? '')}</span> on{' '}
+              <span className="font-semibold">
+                {selectedBooking?.event_date
+                  ? format(new Date(String(selectedBooking.event_date)), 'MMM dd, yyyy')
+                  : '—'}
+              </span>?
+              This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>Keep Booking</Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (selectedBooking) updateMutation.mutate({ id: selectedBooking.id, status: 'CXL' });
+                }}
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? 'Cancelling...' : 'Cancel Booking'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

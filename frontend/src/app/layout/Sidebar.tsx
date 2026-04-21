@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
+import { hasFullAppAccess } from '../lib/roles';
 import {
   LayoutDashboard,
   Building2,
@@ -35,7 +36,7 @@ const Sidebar: React.FC = () => {
       to: '/properties',
       label: 'Properties',
       icon: <Building2 className="w-5 h-5" />,
-      roles: ['super_admin', 'admin', 'manager'],
+      roles: ['super_admin', 'admin', 'manager', 'gm', 'sales_agent'],
     },
   ];
 
@@ -44,11 +45,6 @@ const Sidebar: React.FC = () => {
       to: '/crs/room-types',
       label: 'Room Types',
       icon: <Bed className="w-5 h-5" />,
-    },
-    {
-      to: '/crs/rooms',
-      label: 'Rooms',
-      icon: <Building className="w-5 h-5" />,
     },
     {
       to: '/crs/availability',
@@ -133,7 +129,7 @@ const Sidebar: React.FC = () => {
   ];
 
   const canAccessItem = (item: NavItem) => {
-    if (!item.roles || user?.role === 'super_admin') return true;
+    if (!item.roles || hasFullAppAccess(user?.role)) return true;
     return item.roles.includes(user?.role || '');
   };
 

@@ -1,38 +1,57 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { differenceInCalendarDays, format } from 'date-fns';
+import { CheckCircle, Eye, Plus, XCircle } from 'lucide-react';
 import { useProperty } from '../../context/PropertyContext';
 import apiClient from '../../api/client';
+import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Badge } from '../../components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Eye, CheckCircle, XCircle } from 'lucide-react';
-import { format } from 'date-fns';
 
-interface Booking {
+type BookingRow = Record<string, unknown> & {
   id: number;
-  booking_code: string;
-  guest_name: string;
-  guest_email: string;
-  guest_phone: string;
-  room_type_name: string;
-  check_in_date: string;
-  check_out_date: string;
   status: string;
-  total_amount: number;
-}
+  guest_name?: string;
+  guest_phone?: string;
+  guest_email?: string;
+  total_amount?: number;
+  ds_number?: string;
+  primary_room_line_id?: number;
+  check_in?: string;
+  check_out?: string;
+  room_types?: string;
+  meal_plan?: string;
+  total_adults?: number;
+  total_children?: number;
+  total_rooms?: number;
+  special_notes?: string;
+  booking_source?: string;
+};
+
+type RoomTypeOption = {
+  id: number;
+  category: string;
+  base_rate_rbi: number;
+  add_on_options?: Array<{
+    code?: string;
+    label?: string;
+    price?: number | string;
+    dish_details?: string;
+  }>;
+};
 
 const BookingsPage: React.FC = () => {
   const { selectedPropertyId } = useProperty();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [isCheckInDialogOpen, setIsCheckInDialogOpen] = useState(false);
   const [isCheckOutDialogOpen, setIsCheckOutDialogOpen] = useState(false);
   const [newBooking, setNewBooking] = useState({
@@ -40,44 +59,61 @@ const BookingsPage: React.FC = () => {
     guest_email: '',
     guest_phone: '',
     room_type_id: '',
+    meal_plan: 'ROOM_ONLY',
     check_in_date: '',
     check_out_date: '',
     num_adults: '1',
     num_children: '0',
-    total_amount: '',
   });
 
-  const { data: bookings, isLoading } = useQuery({
+  const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings', selectedPropertyId],
     queryFn: async () => {
-      const response = await apiClient.get('/api/crs/bookings', {
+      const response = await apiClient.get<{ bookings: BookingRow[] }>('/api/crs/bookings', {
         params: { property_id: selectedPropertyId },
       });
-      return response.data;
+      return response.data.bookings ?? [];
     },
     enabled: !!selectedPropertyId,
   });
 
-  const { data: roomTypes } = useQuery({
+  const { data: roomTypes = [] } = useQuery<RoomTypeOption[]>({
     queryKey: ['roomTypes', selectedPropertyId],
     queryFn: async () => {
-      const response = await apiClient.get('/api/crs/room-types', {
-        params: { property_id: selectedPropertyId },
-      });
-      return response.data;
+      const response = await apiClient.get<{ room_types: RoomTypeOption[] }>(
+        '/api/crs/room-types',
+        {
+          params: { property_id: selectedPropertyId },
+        }
+      );
+      return response.data.room_types ?? [];
     },
     enabled: !!selectedPropertyId,
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: typeof newBooking) => {
+      if (!selectedPropertyId) throw new Error('Select a property');
+      const roomType = roomTypes.find((item) => item.id === parseInt(data.room_type_id, 10));
+      if (!roomType) throw new Error('Select a room type');
       const response = await apiClient.post('/api/crs/bookings', {
-        ...data,
         property_id: selectedPropertyId,
-        room_type_id: parseInt(data.room_type_id),
-        num_adults: parseInt(data.num_adults),
-        num_children: parseInt(data.num_children),
-        total_amount: parseFloat(data.total_amount),
+        guest_name: data.guest_name,
+        guest_email: data.guest_email,
+        guest_phone: data.guest_phone,
+        booker_same_as_guest: true,
+        booker_type: 'individual',
+        lines: [
+          {
+            room_type_id: parseInt(data.room_type_id, 10),
+            check_in: data.check_in_date,
+            check_out: data.check_out_date,
+            adults: parseInt(data.num_adults, 10) || 1,
+            children: parseInt(data.num_children, 10) || 0,
+            meal_plan: data.meal_plan,
+            rate_type: 'RBI',
+          },
+        ],
       });
       return response.data;
     },
@@ -90,11 +126,11 @@ const BookingsPage: React.FC = () => {
         guest_email: '',
         guest_phone: '',
         room_type_id: '',
+        meal_plan: 'ROOM_ONLY',
         check_in_date: '',
         check_out_date: '',
         num_adults: '1',
         num_children: '0',
-        total_amount: '',
       });
     },
     onError: () => {
@@ -102,24 +138,14 @@ const BookingsPage: React.FC = () => {
     },
   });
 
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const response = await apiClient.patch(`/api/crs/bookings/${id}/status`, { status });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      toast.success('Booking status updated');
-    },
-    onError: () => {
-      toast.error('Failed to update status');
-    },
-  });
-
   const checkInMutation = useMutation({
     mutationFn: async ({ id, room_id }: { id: number; room_id: string }) => {
+      if (!selectedBooking?.primary_room_line_id) {
+        throw new Error('Room line not available for check-in');
+      }
       const response = await apiClient.post(`/api/crs/bookings/${id}/check-in`, {
-        room_id: parseInt(room_id),
+        room_line_id: selectedBooking.primary_room_line_id,
+        room_id: parseInt(room_id, 10),
       });
       return response.data;
     },
@@ -148,40 +174,67 @@ const BookingsPage: React.FC = () => {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     createMutation.mutate(newBooking);
   };
 
+  const selectedCreateRoomType = roomTypes.find((item) => item.id === parseInt(newBooking.room_type_id || '0', 10));
+  const availableMealPlans =
+    Array.isArray(selectedCreateRoomType?.add_on_options) && selectedCreateRoomType.add_on_options.length > 0
+      ? selectedCreateRoomType.add_on_options
+      : [
+          { code: 'ROOM_ONLY', label: 'Room only' },
+          { code: 'CP', label: 'CP' },
+          { code: 'MAP', label: 'MAP' },
+          { code: 'AP', label: 'AP' },
+          { code: 'CUSTOM', label: 'Custom' },
+        ];
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
+      case 'CONF-P':
+      case 'CONF-U':
         return 'bg-green-100 text-green-800';
-      case 'checked_in':
+      case 'CI':
         return 'bg-blue-100 text-blue-800';
-      case 'checked_out':
+      case 'CO':
         return 'bg-gray-100 text-gray-800';
-      case 'cancelled':
+      case 'CXL':
         return 'bg-red-100 text-red-800';
-      default:
+      case 'INQ':
+      case 'QTN-HOLD':
         return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-slate-100 text-slate-800';
     }
   };
 
+  const formatStay = (booking: BookingRow) => {
+    if (!booking.check_in || !booking.check_out) return 'Stay details not available';
+    const checkIn = new Date(String(booking.check_in));
+    const checkOut = new Date(String(booking.check_out));
+    const nights = Math.max(1, differenceInCalendarDays(checkOut, checkIn));
+    return `${format(checkIn, 'dd MMM yyyy')} - ${format(checkOut, 'dd MMM yyyy')} | ${nights} night${nights === 1 ? '' : 's'}`;
+  };
 
   if (isLoading) {
-    return <div className="flex justify-center py-12"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
+    return (
+      <div className="flex justify-center py-12">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
-          <p className="text-gray-500 mt-1">Manage room reservations</p>
+          <p className="mt-1 text-gray-500">Manage room reservations</p>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
+          <Plus className="mr-2 h-4 w-4" />
           New Booking
         </Button>
       </div>
@@ -194,34 +247,41 @@ const BookingsPage: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Booking Code</TableHead>
+                <TableHead>Reference</TableHead>
                 <TableHead>Guest</TableHead>
-                <TableHead>Room Type</TableHead>
-                <TableHead>Check In</TableHead>
-                <TableHead>Check Out</TableHead>
+                <TableHead>Stay</TableHead>
+                <TableHead>Booked Details</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bookings?.map((booking: Booking) => (
+              {bookings.map((booking) => (
                 <TableRow key={booking.id}>
-                  <TableCell className="font-medium">{booking.booking_code}</TableCell>
+                  <TableCell className="font-medium">{String(booking.ds_number ?? `Booking #${booking.id}`)}</TableCell>
                   <TableCell>
                     <div>
-                      <div>{booking.guest_name}</div>
-                      <div className="text-sm text-gray-500">{booking.guest_phone}</div>
+                      <div>{String(booking.guest_name ?? '—')}</div>
+                      <div className="text-sm text-gray-500">{String(booking.guest_phone ?? '')}</div>
                     </div>
                   </TableCell>
-                  <TableCell>{booking.room_type_name}</TableCell>
-                  <TableCell>{format(new Date(booking.check_in_date), 'MMM dd, yyyy')}</TableCell>
-                  <TableCell>{format(new Date(booking.check_out_date), 'MMM dd, yyyy')}</TableCell>
-                  <TableCell>₹{booking.total_amount}</TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(booking.status)}>
-                      {booking.status.replace('_', ' ')}
-                    </Badge>
+                    <div className="font-medium">{formatStay(booking)}</div>
+                    <div className="text-sm text-gray-500">Source: {String(booking.booking_source ?? 'direct')}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{String(booking.room_types ?? 'Room type not set')}</div>
+                    <div className="text-sm text-gray-500">
+                      {Number(booking.total_adults ?? 0)} adult(s), {Number(booking.total_children ?? 0)} child(ren)
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Meal plan: {String(booking.meal_plan ?? 'ROOM_ONLY')} | Rooms: {Number(booking.total_rooms ?? 1)}
+                    </div>
+                  </TableCell>
+                  <TableCell>₹{Number(booking.total_amount ?? 0).toLocaleString('en-IN')}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -233,9 +293,9 @@ const BookingsPage: React.FC = () => {
                           setIsViewDialogOpen(true);
                         }}
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
-                      {booking.status === 'confirmed' && (
+                      {['TENT', 'CONF-U', 'CONF-P'].includes(booking.status) && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -244,10 +304,10 @@ const BookingsPage: React.FC = () => {
                             setIsCheckInDialogOpen(true);
                           }}
                         >
-                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <CheckCircle className="h-4 w-4 text-green-600" />
                         </Button>
                       )}
-                      {booking.status === 'checked_in' && (
+                      {booking.status === 'CI' && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -256,7 +316,7 @@ const BookingsPage: React.FC = () => {
                             setIsCheckOutDialogOpen(true);
                           }}
                         >
-                          <XCircle className="w-4 h-4 text-blue-600" />
+                          <XCircle className="h-4 w-4 text-blue-600" />
                         </Button>
                       )}
                     </div>
@@ -268,7 +328,49 @@ const BookingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Create Booking Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedBooking ? String(selectedBooking.ds_number ?? `Booking #${selectedBooking.id}`) : 'Booking details'}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedBooking ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Guest</p>
+                <p className="mt-1 font-semibold text-gray-900">{String(selectedBooking.guest_name ?? '—')}</p>
+                <p className="text-sm text-gray-600">{String(selectedBooking.guest_phone ?? '—')}</p>
+                <p className="text-sm text-gray-600">{String(selectedBooking.guest_email ?? '—')}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Stay</p>
+                <p className="mt-1 font-semibold text-gray-900">{formatStay(selectedBooking)}</p>
+                <p className="text-sm text-gray-600">Status: {selectedBooking.status}</p>
+                <p className="text-sm text-gray-600">
+                  Amount: ₹{Number(selectedBooking.total_amount ?? 0).toLocaleString('en-IN')}
+                </p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Room Details</p>
+                <p className="mt-1 font-semibold text-gray-900">{String(selectedBooking.room_types ?? '—')}</p>
+                <p className="text-sm text-gray-600">Meal plan: {String(selectedBooking.meal_plan ?? 'ROOM_ONLY')}</p>
+                <p className="text-sm text-gray-600">
+                  Guests: {Number(selectedBooking.total_adults ?? 0)} adult(s), {Number(selectedBooking.total_children ?? 0)} child(ren)
+                </p>
+                <p className="text-sm text-gray-600">Rooms: {Number(selectedBooking.total_rooms ?? 1)}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <p className="text-sm text-gray-500">Notes</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">
+                  {String(selectedBooking.special_notes ?? 'No additional notes')}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -281,7 +383,7 @@ const BookingsPage: React.FC = () => {
                 <Input
                   id="guest_name"
                   value={newBooking.guest_name}
-                  onChange={(e) => setNewBooking({ ...newBooking, guest_name: e.target.value })}
+                  onChange={(event) => setNewBooking({ ...newBooking, guest_name: event.target.value })}
                   required
                 />
               </div>
@@ -291,7 +393,7 @@ const BookingsPage: React.FC = () => {
                   id="guest_email"
                   type="email"
                   value={newBooking.guest_email}
-                  onChange={(e) => setNewBooking({ ...newBooking, guest_email: e.target.value })}
+                  onChange={(event) => setNewBooking({ ...newBooking, guest_email: event.target.value })}
                   required
                 />
               </div>
@@ -300,7 +402,7 @@ const BookingsPage: React.FC = () => {
                 <Input
                   id="guest_phone"
                   value={newBooking.guest_phone}
-                  onChange={(e) => setNewBooking({ ...newBooking, guest_phone: e.target.value })}
+                  onChange={(event) => setNewBooking({ ...newBooking, guest_phone: event.target.value })}
                   required
                 />
               </div>
@@ -314,9 +416,27 @@ const BookingsPage: React.FC = () => {
                     <SelectValue placeholder="Select room type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roomTypes?.map((type: any) => (
+                    {roomTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id.toString()}>
-                        {type.name} - ₹{type.base_rate}
+                        {type.category} - ₹{type.base_rate_rbi}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="meal_plan">Meal Plan</Label>
+                <Select
+                  value={newBooking.meal_plan}
+                  onValueChange={(value) => setNewBooking({ ...newBooking, meal_plan: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select meal plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMealPlans.map((plan, index) => (
+                      <SelectItem key={`${plan.code ?? 'PLAN'}-${index}`} value={String(plan.code ?? 'CUSTOM')}>
+                        {String(plan.code ?? 'PLAN')} - {String(plan.label ?? 'Custom plan')}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -328,7 +448,7 @@ const BookingsPage: React.FC = () => {
                   id="check_in_date"
                   type="date"
                   value={newBooking.check_in_date}
-                  onChange={(e) => setNewBooking({ ...newBooking, check_in_date: e.target.value })}
+                  onChange={(event) => setNewBooking({ ...newBooking, check_in_date: event.target.value })}
                   required
                 />
               </div>
@@ -338,7 +458,7 @@ const BookingsPage: React.FC = () => {
                   id="check_out_date"
                   type="date"
                   value={newBooking.check_out_date}
-                  onChange={(e) => setNewBooking({ ...newBooking, check_out_date: e.target.value })}
+                  onChange={(event) => setNewBooking({ ...newBooking, check_out_date: event.target.value })}
                   required
                 />
               </div>
@@ -348,7 +468,7 @@ const BookingsPage: React.FC = () => {
                   id="num_adults"
                   type="number"
                   value={newBooking.num_adults}
-                  onChange={(e) => setNewBooking({ ...newBooking, num_adults: e.target.value })}
+                  onChange={(event) => setNewBooking({ ...newBooking, num_adults: event.target.value })}
                   required
                 />
               </div>
@@ -358,18 +478,7 @@ const BookingsPage: React.FC = () => {
                   id="num_children"
                   type="number"
                   value={newBooking.num_children}
-                  onChange={(e) => setNewBooking({ ...newBooking, num_children: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="total_amount">Total Amount (₹)</Label>
-                <Input
-                  id="total_amount"
-                  type="number"
-                  step="0.01"
-                  value={newBooking.total_amount}
-                  onChange={(e) => setNewBooking({ ...newBooking, total_amount: e.target.value })}
-                  required
+                  onChange={(event) => setNewBooking({ ...newBooking, num_children: event.target.value })}
                 />
               </div>
             </div>
@@ -385,16 +494,15 @@ const BookingsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Check In Dialog */}
       <Dialog open={isCheckInDialogOpen} onOpenChange={setIsCheckInDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Check In Guest</DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
+            onSubmit={(event) => {
+              event.preventDefault();
+              const formData = new FormData(event.currentTarget);
               const room_id = formData.get('room_id') as string;
               if (selectedBooking) {
                 checkInMutation.mutate({ id: selectedBooking.id, room_id });
@@ -418,7 +526,6 @@ const BookingsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Check Out Dialog */}
       <Dialog open={isCheckOutDialogOpen} onOpenChange={setIsCheckOutDialogOpen}>
         <DialogContent>
           <DialogHeader>

@@ -5,15 +5,32 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
-import { Hotel, UserCircle, Crown, Briefcase } from 'lucide-react';
+import { Hotel, Crown, Briefcase, Headphones } from 'lucide-react';
 
 const demoAccounts = [
   {
     email: 'admin@hotelpramod.local',
     password: 'Admin@123',
     role: 'Super Admin',
+    hint: 'Full system',
     icon: <Crown className="w-5 h-5" />,
     color: 'from-purple-500 to-pink-500',
+  },
+  {
+    email: 'gm@hotelpramod.local',
+    password: 'Admin@123',
+    role: 'General Manager',
+    hint: 'Leadership dashboard',
+    icon: <Briefcase className="w-5 h-5" />,
+    color: 'from-slate-700 to-indigo-800',
+  },
+  {
+    email: 'agent@hotelpramod.local',
+    password: 'Admin@123',
+    role: 'Sales Agent',
+    hint: 'Simple home — same powers',
+    icon: <Headphones className="w-5 h-5" />,
+    color: 'from-emerald-600 to-teal-600',
   },
 ];
 
@@ -168,24 +185,22 @@ const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {demoAccounts.map((account, index) => (
                   <button
                     key={index}
                     type="button"
                     onClick={() => handleDemoLogin(account.email, account.password)}
-                    className={`w-full p-4 rounded-lg border-2 border-gray-200 hover:border-transparent hover:shadow-lg transition-all group bg-gradient-to-r ${account.color} hover:scale-[1.02]`}
+                    className={`p-4 rounded-xl border-2 border-transparent hover:shadow-lg transition-all group bg-gradient-to-br ${account.color} hover:scale-[1.02] text-left`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-white/90 flex items-center justify-center text-gray-700 group-hover:text-white group-hover:bg-white/20 transition-all">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center text-white">
                         {account.icon}
                       </div>
-                      <div className="text-left flex-1">
-                        <p className="font-semibold text-white">{account.role}</p>
-                        <p className="text-xs text-white/80">{account.email}</p>
-                      </div>
-                      <div className="text-xs text-white/60 group-hover:text-white/90 transition-colors">
-                        Click to login
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-white text-sm">{account.role}</p>
+                        <p className="text-[11px] text-white/75 truncate">{account.email}</p>
+                        <p className="text-[11px] text-white/90 mt-1">{account.hint}</p>
                       </div>
                     </div>
                   </button>
@@ -193,7 +208,7 @@ const LoginPage: React.FC = () => {
               </div>
 
               <p className="text-xs text-center text-gray-500">
-                Demo accounts are pre-configured for testing purposes
+                Same password for all: Admin@123 — run <code className="text-gray-700">npm run db:seed</code> in backend if a login fails.
               </p>
             </CardContent>
           </Card>
