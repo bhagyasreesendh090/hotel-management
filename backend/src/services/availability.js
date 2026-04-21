@@ -11,7 +11,7 @@ export async function availabilityByRoomType(propertyId, rangeStart, rangeEnd) {
   const { rows } = await query(
     `
     WITH rt AS (
-      SELECT id, category, base_rate_rbi, occupancy_max
+      SELECT id, category, base_rate_rbi, occupancy_max, add_on_options
       FROM room_types
       WHERE property_id = $1 AND active = TRUE
     ),
@@ -58,8 +58,9 @@ export async function availabilityByRoomType(propertyId, rangeStart, rangeEnd) {
     SELECT rt.id AS room_type_id,
            rt.category,
            rt.base_rate_rbi,
-           rt.occupancy_max,
-           COALESCE(rc.total, 0) AS total_rooms,
+      rt.occupancy_max,
+      rt.add_on_options,
+      COALESCE(rc.total, 0) AS total_rooms,
            COALESCE(bk.booked_units, 0) AS booked_units,
            COALESCE(bm.blocked_units, 0) AS blocked_units,
            GREATEST(
@@ -75,4 +76,169 @@ export async function availabilityByRoomType(propertyId, rangeStart, rangeEnd) {
     [pid, rangeStart, rangeEnd]
   );
   return rows;
+}
+
+export async function availabilityCalendarByRoomType(propertyId, rangeStart, rangeEnd) {
+  const pid = Number(propertyId);
+  const { rows } = await query(
+    `
+    WITH days AS (
+      SELECT generate_series($2::date, $3::date, interval '1 day')::date AS day
+    ),
+    rt AS (
+      SELECT id, category, base_rate_rbi, occupancy_max, add_on_options
+      FROM room_types
+      WHERE property_id = $1 AND active = TRUE
+    ),
+    room_counts AS (
+      SELECT room_type_id, COUNT(*)::int AS total
+      FROM rooms
+      WHERE property_id = $1 AND status = 'available'
+      GROUP BY room_type_id
+    ),
+    booked AS (
+      SELECT
+        brl.room_type_id,
+        d.day,
+        COUNT(*)::int AS booked_units
+      FROM booking_room_lines brl
+      JOIN bookings b ON b.id = brl.booking_id
+      JOIN days d ON brl.check_in <= d.day AND brl.check_out > d.day
+      WHERE b.property_id = $1
+        AND b.status IN ${BLOCKING_BOOKING_STATUSES}
+      GROUP BY brl.room_type_id, d.day
+    ),
+    type_blocks AS (
+      SELECT
+        rb.room_type_id,
+        d.day,
+        COUNT(*)::int AS blocked_units
+      FROM room_blocks rb
+      JOIN days d ON rb.start_date <= d.day AND rb.end_date >= d.day
+      WHERE rb.property_id = $1
+        AND rb.room_type_id IS NOT NULL
+      GROUP BY rb.room_type_id, d.day
+    ),
+    room_blocks_by_type AS (
+      SELECT
+        r.room_type_id,
+        d.day,
+        COUNT(DISTINCT rb.id)::int AS blocked_units
+      FROM room_blocks rb
+      JOIN rooms r ON r.id = rb.room_id AND r.property_id = $1
+      JOIN days d ON rb.start_date <= d.day AND rb.end_date >= d.day
+      WHERE rb.property_id = $1
+      GROUP BY r.room_type_id, d.day
+    ),
+    blocks AS (
+      SELECT room_type_id, day, SUM(blocked_units)::int AS blocked_units
+      FROM (
+        SELECT * FROM type_blocks
+        UNION ALL
+        SELECT * FROM room_blocks_by_type
+      ) merged
+      GROUP BY room_type_id, day
+    )
+    SELECT
+      d.day,
+      rt.id AS room_type_id,
+      rt.category,
+      rt.base_rate_rbi,
+           rt.occupancy_max,
+           rt.add_on_options,
+           COALESCE(rc.total, 0) AS total_rooms,
+      COALESCE(bk.booked_units, 0) AS booked_units,
+      COALESCE(bl.blocked_units, 0) AS blocked_units,
+      GREATEST(
+        COALESCE(rc.total, 0) - COALESCE(bk.booked_units, 0) - COALESCE(bl.blocked_units, 0),
+        0
+      )::int AS available_units
+    FROM days d
+    CROSS JOIN rt
+    LEFT JOIN room_counts rc ON rc.room_type_id = rt.id
+    LEFT JOIN booked bk ON bk.room_type_id = rt.id AND bk.day = d.day
+    LEFT JOIN blocks bl ON bl.room_type_id = rt.id AND bl.day = d.day
+    ORDER BY rt.category, d.day
+    `,
+    [pid, rangeStart, rangeEnd]
+  );
+  return rows;
+}
+
+export async function roomTypeMinimumAvailability(propertyId, roomTypeId, rangeStart, rangeEnd) {
+  const pid = Number(propertyId);
+  const rtId = Number(roomTypeId);
+  const { rows } = await query(
+    `
+    WITH days AS (
+      SELECT generate_series($3::date, ($4::date - interval '1 day')::date, interval '1 day')::date AS day
+    ),
+    room_counts AS (
+      SELECT COUNT(*)::int AS total
+      FROM rooms
+      WHERE property_id = $1
+        AND room_type_id = $2
+        AND status = 'available'
+    ),
+    booked AS (
+      SELECT
+        d.day,
+        COUNT(*)::int AS booked_units
+      FROM booking_room_lines brl
+      JOIN bookings b ON b.id = brl.booking_id
+      JOIN days d ON brl.check_in <= d.day AND brl.check_out > d.day
+      WHERE b.property_id = $1
+        AND brl.room_type_id = $2
+        AND b.status IN ${BLOCKING_BOOKING_STATUSES}
+      GROUP BY d.day
+    ),
+    type_blocks AS (
+      SELECT
+        d.day,
+        COUNT(*)::int AS blocked_units
+      FROM room_blocks rb
+      JOIN days d ON rb.start_date <= d.day AND rb.end_date >= d.day
+      WHERE rb.property_id = $1
+        AND rb.room_type_id = $2
+      GROUP BY d.day
+    ),
+    room_blocks_by_type AS (
+      SELECT
+        d.day,
+        COUNT(DISTINCT rb.id)::int AS blocked_units
+      FROM room_blocks rb
+      JOIN rooms r ON r.id = rb.room_id
+      JOIN days d ON rb.start_date <= d.day AND rb.end_date >= d.day
+      WHERE rb.property_id = $1
+        AND r.property_id = $1
+        AND r.room_type_id = $2
+      GROUP BY d.day
+    ),
+    blocks AS (
+      SELECT day, SUM(blocked_units)::int AS blocked_units
+      FROM (
+        SELECT * FROM type_blocks
+        UNION ALL
+        SELECT * FROM room_blocks_by_type
+      ) merged
+      GROUP BY day
+    )
+    SELECT COALESCE(
+      MIN(
+        GREATEST(
+          COALESCE((SELECT total FROM room_counts), 0)
+            - COALESCE(booked.booked_units, 0)
+            - COALESCE(blocks.blocked_units, 0),
+          0
+        )
+      ),
+      COALESCE((SELECT total FROM room_counts), 0)
+    )::int AS min_available
+    FROM days
+    LEFT JOIN booked ON booked.day = days.day
+    LEFT JOIN blocks ON blocks.day = days.day
+    `,
+    [pid, rtId, rangeStart, rangeEnd]
+  );
+  return Number(rows[0]?.min_available ?? 0);
 }

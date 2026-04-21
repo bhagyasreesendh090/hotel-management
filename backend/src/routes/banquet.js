@@ -50,6 +50,58 @@ router.post(
   }
 );
 
+router.put(
+  '/venues/:id',
+  requireRoles('super_admin', 'branch_manager', 'banquet_coordinator'),
+  param('id').isInt(),
+  body('name').isString(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM venues WHERE id = $1 AND active = TRUE`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Venue not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    const { name, capacity_min, capacity_max, floor_plan_notes } = req.body;
+    const { rows } = await query(
+      `UPDATE venues
+       SET name=$2, capacity_min=$3, capacity_max=$4, floor_plan_notes=$5, updated_at=NOW()
+       WHERE id=$1 AND active=TRUE RETURNING *`,
+      [id, name, capacity_min ?? null, capacity_max ?? null, floor_plan_notes ?? null]
+    );
+    res.json({ venue: rows[0] });
+  }
+);
+
+router.delete(
+  '/venues/:id',
+  requireRoles('super_admin', 'branch_manager', 'banquet_coordinator'),
+  param('id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM venues WHERE id = $1 AND active = TRUE`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Venue not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    // Check if venue has future active bookings
+    const inUse = await query(
+      `SELECT 1 FROM banquet_bookings WHERE venue_id=$1 AND status NOT IN ('CXL') AND event_date >= CURRENT_DATE LIMIT 1`,
+      [id]
+    );
+    if (inUse.rows.length > 0) {
+      return res.status(409).json({ error: 'Cannot delete venue — it has active upcoming bookings.' });
+    }
+    await query(`UPDATE venues SET active=FALSE, updated_at=NOW() WHERE id=$1`, [id]);
+    res.json({ success: true });
+  }
+);
+
+
 router.get('/venue-slots', qv('venue_id').optional().isInt(), qv('property_id').optional().isInt(), async (req, res) => {
   if (req.query.venue_id) {
     const { rows } = await query(`SELECT * FROM venue_time_slots WHERE venue_id = $1 ORDER BY start_time`, [

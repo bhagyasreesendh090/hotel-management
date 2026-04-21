@@ -225,5 +225,28 @@ router.patch(
   }
 );
 
+router.patch(
+  '/invoices/:id/status',
+  requireRoles('super_admin', 'finance', 'branch_manager'),
+  param('id').isInt(),
+  body('status').isIn(['outstanding', 'partial', 'paid', 'void']),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM invoices WHERE id = $1`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Invoice not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    const { rows } = await query(
+      `UPDATE invoices SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id, req.body.status]
+    );
+    res.json({ invoice: rows[0] });
+  }
+);
+
 export default router;
+
 

@@ -9,6 +9,7 @@ import banquetRoutes from './routes/banquet.js';
 import corporateRoutes from './routes/corporate.js';
 import financeRoutes from './routes/finance.js';
 import reportsRoutes from './routes/reports.js';
+import publicRoutes from './routes/public.js';
 
 export function createApp() {
   const app = express();
@@ -17,6 +18,8 @@ export function createApp() {
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/health', (req, res) => res.json({ ok: true }));
+
+  app.use('/api/public', publicRoutes);
 
   app.use('/api/auth', authRoutes);
   app.use('/api/properties', propertyRoutes);

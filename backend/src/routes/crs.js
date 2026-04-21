@@ -51,7 +51,20 @@ router.get('/room-types', qv('property_id').isInt(), async (req, res) => {
     return res.status(403).json({ error: 'Property access denied' });
   }
   const { rows } = await query(
-    `SELECT * FROM room_types WHERE property_id = $1 AND active = TRUE ORDER BY category`,
+    `SELECT
+       rt.*,
+       p.name AS property_name,
+       COALESCE(room_counts.total_rooms, 0) AS total_rooms
+     FROM room_types rt
+     JOIN properties p ON p.id = rt.property_id
+     LEFT JOIN (
+       SELECT room_type_id, COUNT(*)::int AS total_rooms
+       FROM rooms
+       WHERE property_id = $1
+       GROUP BY room_type_id
+     ) AS room_counts ON room_counts.room_type_id = rt.id
+     WHERE rt.property_id = $1 AND rt.active = TRUE
+     ORDER BY rt.category`,
     [propertyId]
   );
   res.json({ room_types: rows });
@@ -76,7 +89,7 @@ router.post(
       occupancy_max,
       base_rate_rbi,
       gst_rate_override,
-      add_on_options,
+      meal_plan_options,
       amenities,
       extra_person_charge,
     } = req.body;
@@ -91,13 +104,79 @@ router.post(
         occupancy_max ?? 2,
         base_rate_rbi,
         gst_rate_override ?? null,
-        JSON.stringify(add_on_options ?? []),
+        JSON.stringify(meal_plan_options ?? []),
         JSON.stringify(amenities ?? []),
         extra_person_charge ?? 0,
       ]
     );
     await writeAudit(req.user.id, 'room_type', rows[0].id, 'create', null, rows[0]);
     res.status(201).json({ room_type: rows[0] });
+  }
+);
+
+router.put(
+  '/room-types/:id',
+  requireRoles('super_admin', 'branch_manager'),
+  param('id').isInt(),
+  body('category').isString(),
+  body('base_rate_rbi').isFloat(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM room_types WHERE id = $1 AND active = TRUE`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Room type not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    const {
+      category,
+      floor_wing,
+      occupancy_max,
+      base_rate_rbi,
+      gst_rate_override,
+      meal_plan_options,
+      amenities,
+      extra_person_charge,
+    } = req.body;
+    const { rows } = await query(
+      `UPDATE room_types
+       SET category=$2, floor_wing=$3, occupancy_max=$4, base_rate_rbi=$5,
+           gst_rate_override=$6, add_on_options=$7, amenities=$8, extra_person_charge=$9, updated_at=NOW()
+       WHERE id=$1 AND active=TRUE RETURNING *`,
+      [
+        id,
+        category,
+        floor_wing ?? cur.rows[0].floor_wing,
+        occupancy_max ?? cur.rows[0].occupancy_max,
+        base_rate_rbi,
+        gst_rate_override ?? cur.rows[0].gst_rate_override,
+        JSON.stringify(meal_plan_options ?? cur.rows[0].add_on_options ?? []),
+        JSON.stringify(amenities ?? cur.rows[0].amenities ?? []),
+        extra_person_charge ?? cur.rows[0].extra_person_charge,
+      ]
+    );
+    await writeAudit(req.user.id, 'room_type', id, 'update', cur.rows[0], rows[0]);
+    res.json({ room_type: rows[0] });
+  }
+);
+
+router.delete(
+  '/room-types/:id',
+  requireRoles('super_admin', 'branch_manager'),
+  param('id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM room_types WHERE id = $1 AND active = TRUE`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Room type not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    await query(`UPDATE room_types SET active=FALSE, updated_at=NOW() WHERE id=$1`, [id]);
+    await writeAudit(req.user.id, 'room_type', id, 'delete', cur.rows[0], null);
+    res.json({ success: true });
   }
 );
 
@@ -142,6 +221,59 @@ router.post(
     );
     await writeAudit(req.user.id, 'room', rows[0].id, 'create', null, rows[0]);
     res.status(201).json({ room: rows[0] });
+  }
+);
+
+router.put(
+  '/rooms/:id',
+  requireRoles('super_admin', 'branch_manager'),
+  param('id').isInt(),
+  body('room_number').isString(),
+  body('room_type_id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM rooms WHERE id = $1`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Room not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    const { room_number, room_type_id, status } = req.body;
+    const { rows } = await query(
+      `UPDATE rooms SET room_number=$2, room_type_id=$3, status=COALESCE($4,status), updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id, room_number, room_type_id, status ?? null]
+    );
+    await writeAudit(req.user.id, 'room', id, 'update', cur.rows[0], rows[0]);
+    res.json({ room: rows[0] });
+  }
+);
+
+router.delete(
+  '/rooms/:id',
+  requireRoles('super_admin', 'branch_manager'),
+  param('id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM rooms WHERE id = $1`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Room not found' });
+    if (!assertPropertyAccess(req.user, cur.rows[0].property_id)) {
+      return res.status(403).json({ error: 'Property access denied' });
+    }
+    // Hard delete only if no active bookings reference this room
+    const inUse = await query(
+      `SELECT 1 FROM booking_room_lines WHERE room_id = $1 LIMIT 1`,
+      [id]
+    );
+    if (inUse.rows.length > 0) {
+      return res.status(409).json({ error: 'Cannot delete room — it is referenced by existing bookings.' });
+    }
+    await query(`DELETE FROM rooms WHERE id = $1`, [id]);
+    await writeAudit(req.user.id, 'room', id, 'delete', cur.rows[0], null);
+    res.json({ success: true });
   }
 );
 
@@ -205,9 +337,33 @@ router.get('/bookings', qv('property_id').optional().isInt(), async (req, res) =
     return res.status(403).json({ error: 'Property access denied' });
   }
   let sql = `
-    SELECT b.*, p.code AS property_code
+    SELECT
+      b.*,
+      p.code AS property_code,
+      line_summary.check_in,
+      line_summary.check_out,
+      line_summary.total_adults,
+      line_summary.total_children,
+      line_summary.total_rooms,
+      line_summary.meal_plan,
+      line_summary.room_types
     FROM bookings b
     JOIN properties p ON p.id = b.property_id
+    LEFT JOIN (
+      SELECT
+        brl.booking_id,
+        MIN(brl.id)::int AS primary_room_line_id,
+        MIN(brl.check_in) AS check_in,
+        MAX(brl.check_out) AS check_out,
+        SUM(brl.adults)::int AS total_adults,
+        SUM(brl.children)::int AS total_children,
+        COUNT(*)::int AS total_rooms,
+        STRING_AGG(DISTINCT brl.meal_plan, ', ' ORDER BY brl.meal_plan) AS meal_plan,
+        STRING_AGG(DISTINCT rt.category, ', ' ORDER BY rt.category) AS room_types
+      FROM booking_room_lines brl
+      JOIN room_types rt ON rt.id = brl.room_type_id
+      GROUP BY brl.booking_id
+    ) AS line_summary ON line_summary.booking_id = b.id
     WHERE 1=1`;
   const params = [];
   if (propertyId) {

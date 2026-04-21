@@ -133,4 +133,94 @@ router.post(
   }
 );
 
+router.put(
+  '/travel-agents/:id',
+  requireRoles('super_admin', 'branch_manager', 'sales_manager'),
+  param('id').isInt(),
+  body('agency_name').isString(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const b = req.body;
+    const { rows } = await query(
+      `UPDATE travel_agents
+       SET agency_name=$2, contact_name=$3, email=$4, phone=$5, commission_pct=$6, updated_at=NOW()
+       WHERE id=$1 AND active=TRUE RETURNING *`,
+      [
+        id,
+        b.agency_name,
+        b.contact_name ?? null,
+        b.email ?? null,
+        b.phone ?? null,
+        b.commission_pct ?? 0,
+      ]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Travel agent not found' });
+    res.json({ travel_agent: rows[0] });
+  }
+);
+
+router.delete(
+  '/travel-agents/:id',
+  requireRoles('super_admin', 'branch_manager', 'sales_manager'),
+  param('id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const { rows } = await query(
+      `UPDATE travel_agents SET active=FALSE, updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id`,
+      [id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Travel agent not found' });
+    res.json({ success: true });
+  }
+);
+
+router.put(
+  '/corporate-accounts/:id',
+  requireRoles('super_admin', 'branch_manager', 'sales_manager', 'finance'),
+  param('id').isInt(),
+  body('company_name').isString(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const b = req.body;
+    const { rows } = await query(
+      `UPDATE corporate_accounts
+       SET company_name=$2, address=$3, primary_contact=$4, primary_email=$5, primary_phone=$6, updated_at=NOW()
+       WHERE id=$1 AND active=TRUE RETURNING *`,
+      [
+        id,
+        b.company_name,
+        b.address ?? null,
+        b.primary_contact ?? null,
+        b.primary_email ?? null,
+        b.primary_phone ?? null,
+      ]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Corporate account not found' });
+    res.json({ corporate_account: rows[0] });
+  }
+);
+
+router.delete(
+  '/corporate-accounts/:id',
+  requireRoles('super_admin', 'branch_manager', 'sales_manager', 'finance'),
+  param('id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const { rows } = await query(
+      `UPDATE corporate_accounts SET active=FALSE, updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id`,
+      [id]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Corporate account not found' });
+    res.json({ success: true });
+  }
+);
+
 export default router;
