@@ -59,7 +59,7 @@ const BookingsPage: React.FC = () => {
     guest_email: '',
     guest_phone: '',
     room_type_id: '',
-    meal_plan: 'ROOM_ONLY',
+    meal_plan: '',
     check_in_date: '',
     check_out_date: '',
     num_adults: '1',
@@ -87,6 +87,21 @@ const BookingsPage: React.FC = () => {
         }
       );
       return response.data.room_types ?? [];
+    },
+    enabled: !!selectedPropertyId,
+  });
+
+  const { data: mealPlans = [] } = useQuery({
+    queryKey: ['mealPlans', selectedPropertyId],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/meal-plans', {
+        params: { property_id: selectedPropertyId },
+      });
+      return (response.data.meal_plans ?? []).map((mp: any) => ({
+        code: mp.code,
+        label: mp.name,
+        price: Number(mp.per_person_rate) || 0
+      }));
     },
     enabled: !!selectedPropertyId,
   });
@@ -126,7 +141,7 @@ const BookingsPage: React.FC = () => {
         guest_email: '',
         guest_phone: '',
         room_type_id: '',
-        meal_plan: 'ROOM_ONLY',
+        meal_plan: '',
         check_in_date: '',
         check_out_date: '',
         num_adults: '1',
@@ -180,16 +195,8 @@ const BookingsPage: React.FC = () => {
   };
 
   const selectedCreateRoomType = roomTypes.find((item) => item.id === parseInt(newBooking.room_type_id || '0', 10));
-  const availableMealPlans =
-    Array.isArray(selectedCreateRoomType?.add_on_options) && selectedCreateRoomType.add_on_options.length > 0
-      ? selectedCreateRoomType.add_on_options
-      : [
-          { code: 'ROOM_ONLY', label: 'Room only' },
-          { code: 'CP', label: 'CP' },
-          { code: 'MAP', label: 'MAP' },
-          { code: 'AP', label: 'AP' },
-          { code: 'CUSTOM', label: 'Custom' },
-        ];
+
+  const availableMealPlans = mealPlans;
 
   const getStatusColor = (status: string) => {
     switch (status) {

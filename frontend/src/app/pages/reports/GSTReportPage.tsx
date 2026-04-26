@@ -8,6 +8,7 @@ import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { format } from 'date-fns';
+import { Download } from 'lucide-react';
 
 type SummaryRow = {
   property_id: number;
@@ -50,6 +51,37 @@ export default function GSTReportPage() {
     return { sub, gst, inv };
   }, [summary]);
 
+  const handleExportCSV = () => {
+    if (summary.length === 0) return;
+    const headers = ['Property', 'Month', 'Sub-total', 'CGST', 'SGST', 'GST total', 'Invoice total'];
+    const rows = summary.map(row => [
+      row.property_id,
+      row.month?.slice?.(0, 10) ?? row.month,
+      Number(row.sub_total).toFixed(2),
+      Number(row.cgst).toFixed(2),
+      Number(row.sgst).toFixed(2),
+      Number(row.gst_total).toFixed(2),
+      Number(row.total_amount).toFixed(2)
+    ]);
+    
+    // Add totals row at the bottom
+    rows.push(['TOTALS', '', totals.sub.toFixed(2), '', '', totals.gst.toFixed(2), '']);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('url');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gst_summary_${fromDate}_to_${toDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -71,8 +103,18 @@ export default function GSTReportPage() {
               <Label htmlFor="to">To date</Label>
               <Input id="to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </div>
-            <Button type="button" onClick={() => refetch()}>
+            <Button type="button" onClick={() => refetch()} className="bg-indigo-600 hover:bg-indigo-700 text-white">
               Generate report
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleExportCSV} 
+              disabled={summary.length === 0}
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
             </Button>
           </div>
         </CardContent>

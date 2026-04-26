@@ -42,6 +42,7 @@ async function resolveNightlyRate(client, line, corporateAccountId) {
   return base;
 }
 
+
 /** ---------- Room types ---------- */
 router.get('/room-types', qv('property_id').isInt(), async (req, res) => {
   const errors = validationResult(req);

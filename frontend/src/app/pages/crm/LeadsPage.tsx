@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Eye, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, AlertTriangle, Download } from 'lucide-react';
 
 interface Lead {
   id: number;
@@ -184,6 +184,33 @@ const LeadsPage: React.FC = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!leads || leads.length === 0) return;
+    const headers = ['Name', 'Company', 'Email', 'Phone', 'Source', 'Status'];
+    const rows = leads.map(lead => [
+      `"${lead.contact_name}"`,
+      `"${lead.company ?? ''}"`,
+      `"${lead.contact_email ?? ''}"`,
+      `"${lead.contact_phone ?? ''}"`,
+      `"${lead.lead_source ?? 'direct'}"`,
+      `"${lead.status}"`
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('url');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `crm_leads_export.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (isLoading) {
     return <div className="flex justify-center py-12"><div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>;
   }
@@ -195,10 +222,16 @@ const LeadsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
           <p className="text-gray-500 mt-1">Manage sales leads and opportunities</p>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setIsCreateDialogOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Lead
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportCSV} disabled={leads.length === 0} className="gap-2">
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+          <Button onClick={() => { setForm(emptyForm); setIsCreateDialogOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Lead
+          </Button>
+        </div>
       </div>
 
       <Card>

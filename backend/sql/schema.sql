@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS rooms (
   UNIQUE (property_id, room_number)
 );
 
+CREATE TABLE IF NOT EXISTS meal_plans (
+  id                SERIAL PRIMARY KEY,
+  property_id       INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  name              VARCHAR(128) NOT NULL,
+  code              VARCHAR(16) NOT NULL,
+  description       TEXT,
+  per_person_rate   NUMERIC(12,2) NOT NULL DEFAULT 0,
+  included_meals    JSONB DEFAULT '[]',
+  items             JSONB DEFAULT '[]',
+  active            BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (property_id, code)
+);
+
+
 CREATE TABLE IF NOT EXISTS room_blocks (
   id                SERIAL PRIMARY KEY,
   room_id           INTEGER REFERENCES rooms(id) ON DELETE CASCADE,
@@ -313,6 +329,17 @@ CREATE TABLE IF NOT EXISTS banquet_bookings (
   lead_id           INTEGER REFERENCES leads(id) ON DELETE SET NULL,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Maintenance / buffer blocks for venue sessions
+CREATE TABLE IF NOT EXISTS venue_maintenance_blocks (
+  id                SERIAL PRIMARY KEY,
+  venue_id          INTEGER NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+  property_id       INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  venue_slot_id     INTEGER REFERENCES venue_time_slots(id) ON DELETE CASCADE,
+  block_date        DATE NOT NULL,
+  reason            TEXT NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS corporate_rate_lines (

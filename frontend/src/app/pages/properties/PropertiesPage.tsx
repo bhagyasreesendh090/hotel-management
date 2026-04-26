@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { toast } from 'sonner';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 interface Property {
   id: number;
@@ -30,6 +30,7 @@ const PropertiesPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
+  const [deleteTargetProperty, setDeleteTargetProperty] = useState<Property | null>(null);
 
   const { data: properties = [], isLoading } = useQuery<Property[]>({
     queryKey: ['properties'],
@@ -52,6 +53,20 @@ const PropertiesPage: React.FC = () => {
     },
     onError: () => {
       toast.error('Failed to update property');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/api/properties/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      toast.success('Property deleted successfully');
+      setDeleteTargetProperty(null);
+    },
+    onError: () => {
+      toast.error('Failed to delete property');
     },
   });
 
@@ -103,9 +118,19 @@ const PropertiesPage: React.FC = () => {
                   <TableCell>{property.phone}</TableCell>
                   <TableCell>{property.email}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(property)}>
-                      <Pencil className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => handleEdit(property)}>
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                        onClick={() => setDeleteTargetProperty(property)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -190,6 +215,33 @@ const PropertiesPage: React.FC = () => {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTargetProperty} onOpenChange={(open) => { if (!open) setDeleteTargetProperty(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Property?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600">
+            Are you sure you want to delete{' '}
+            <span className="font-semibold text-slate-900">{deleteTargetProperty?.name}</span>?
+            This will soft-delete the property and hide it from all users. This action can only be undone from the database.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDeleteTargetProperty(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTargetProperty) deleteMutation.mutate(deleteTargetProperty.id);
+              }}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete Property'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

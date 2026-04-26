@@ -28,7 +28,9 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { token, isLoading: authLoading } = useAuth();
   const [selectedPropertyId, setSelectedPropertyIdState] = useState<number | null>(() => {
     const saved = localStorage.getItem('selectedPropertyId');
-    return saved ? parseInt(saved, 10) : null;
+    if (!saved) return null;
+    const parsed = parseInt(saved, 10);
+    return Number.isFinite(parsed) ? parsed : null; // guard against "null" / corrupt string
   });
 
   const canFetchProperties = Boolean(token) && !authLoading;

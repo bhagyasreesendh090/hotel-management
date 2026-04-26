@@ -9,12 +9,13 @@ import {
   Users,
   Briefcase,
   Building,
-  DollarSign,
   FileText,
   Calendar,
   Hotel,
+  Coffee,
   ChevronRight,
 } from 'lucide-react';
+
 
 interface NavItem {
   to: string;
@@ -56,6 +57,11 @@ const Sidebar: React.FC = () => {
       label: 'Bookings',
       icon: <FileText className="w-5 h-5" />,
     },
+    {
+      to: '/crs/meal-plans',
+      label: 'Meal Plans',
+      icon: <Coffee className="w-5 h-5" />,
+    },
   ];
 
   const crmItems: NavItem[] = [
@@ -63,6 +69,16 @@ const Sidebar: React.FC = () => {
       to: '/crm/leads',
       label: 'Leads',
       icon: <Users className="w-5 h-5" />,
+    },
+    {
+      to: '/crm/quotations',
+      label: 'Quotations',
+      icon: <FileText className="w-5 h-5" />,
+    },
+    {
+      to: '/crm/contracts',
+      label: 'Contracts',
+      icon: <Briefcase className="w-5 h-5" />,
     },
   ];
 
@@ -79,6 +95,7 @@ const Sidebar: React.FC = () => {
     },
   ];
 
+
   const corporateItems: NavItem[] = [
     {
       to: '/corporate/accounts',
@@ -92,41 +109,6 @@ const Sidebar: React.FC = () => {
     },
   ];
 
-  const financeItems: NavItem[] = [
-    {
-      to: '/finance/invoices',
-      label: 'Invoices',
-      icon: <FileText className="w-5 h-5" />,
-    },
-    {
-      to: '/finance/payments',
-      label: 'Payments',
-      icon: <DollarSign className="w-5 h-5" />,
-    },
-    {
-      to: '/finance/cancellations',
-      label: 'Cancellations',
-      icon: <FileText className="w-5 h-5" />,
-    },
-  ];
-
-  const reportItems: NavItem[] = [
-    {
-      to: '/reports/pipeline',
-      label: 'CRM Pipeline',
-      icon: <FileText className="w-5 h-5" />,
-    },
-    {
-      to: '/reports/gst',
-      label: 'GST Summary',
-      icon: <FileText className="w-5 h-5" />,
-    },
-    {
-      to: '/reports/occupancy',
-      label: 'Occupancy',
-      icon: <FileText className="w-5 h-5" />,
-    },
-  ];
 
   const canAccessItem = (item: NavItem) => {
     if (!item.roles || hasFullAppAccess(user?.role)) return true;
@@ -222,8 +204,6 @@ const Sidebar: React.FC = () => {
           {renderNavSection('CRM', crmItems)}
           {renderNavSection('Banquet', banquetItems)}
           {renderNavSection('Corporate', corporateItems)}
-          {renderNavSection('Finance', financeItems)}
-          {renderNavSection('Reports', reportItems)}
         </div>
       </div>
     </aside>

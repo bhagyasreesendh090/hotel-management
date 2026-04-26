@@ -6,10 +6,8 @@ import {
   ClipboardList,
   Hotel,
   LineChart,
-  Sparkles,
   Users,
   UtensilsCrossed,
-  Wallet,
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -59,8 +57,6 @@ const ExecutiveDashboardPage: React.FC = () => {
     { to: '/crs/bookings', label: 'Bookings', sub: 'Reservations & status', icon: CalendarDays },
     { to: '/crs/availability', label: 'Availability', sub: 'Pick dates & property', icon: LineChart },
     { to: '/banquet/bookings', label: 'Banquets', sub: 'Venues & holds', icon: UtensilsCrossed },
-    { to: '/finance/invoices', label: 'Invoices', sub: 'Billing snapshot', icon: Wallet },
-    { to: '/reports/pipeline', label: 'Reports', sub: 'CRM & GST views', icon: Sparkles },
   ];
 
   return (

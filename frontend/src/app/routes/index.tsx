@@ -11,11 +11,17 @@ import PropertiesPage from '../pages/properties/PropertiesPage';
 import RoomTypesPage from '../pages/crs/RoomTypesPage';
 import AvailabilityPage from '../pages/crs/AvailabilityPage';
 import BookingsPage from '../pages/crs/BookingsPage';
+import MealPlansPage from '../pages/crs/MealPlansPage';
 
 // CRM Pages
 import LeadsPage from '../pages/crm/LeadsPage';
 import LeadDetailsPage from '../pages/crm/LeadDetailsPage';
-
+import QuotationsPage from '../pages/crm/QuotationsPage';
+import QuoteBuilderPage from '../pages/crm/QuoteBuilderPage';
+import PublicQuoteView from '../pages/crm/PublicQuoteView';
+import ContractsPage from '../pages/crm/ContractsPage';
+import ContractBuilderPage from '../pages/crm/ContractBuilderPage';
+import PublicContractView from '../pages/crm/PublicContractView';
 // Banquet Pages
 import VenuesPage from '../pages/banquet/VenuesPage';
 import BanquetBookingsPage from '../pages/banquet/BanquetBookingsPage';
@@ -24,15 +30,7 @@ import BanquetBookingsPage from '../pages/banquet/BanquetBookingsPage';
 import CorporateAccountsPage from '../pages/corporate/CorporateAccountsPage';
 import TravelAgentsPage from '../pages/corporate/TravelAgentsPage';
 
-// Finance Pages
-import InvoicesPage from '../pages/finance/InvoicesPage';
-import PaymentsPage from '../pages/finance/PaymentsPage';
-import CancellationsPage from '../pages/finance/CancellationsPage';
 
-// Reports Pages
-import PipelineReportPage from '../pages/reports/PipelineReportPage';
-import GSTReportPage from '../pages/reports/GSTReportPage';
-import OccupancyReportPage from '../pages/reports/OccupancyReportPage';
 import PublicBookingPage from '../pages/public/PublicBookingPage';
 import AppErrorPage from '../pages/errors/AppErrorPage';
 
@@ -50,6 +48,16 @@ export const router = createBrowserRouter([
   {
     path: '/public/book/:propertyRef',
     element: <PublicBookingPage />,
+    errorElement: <AppErrorPage />,
+  },
+  {
+    path: '/public/quote/:token',
+    element: <PublicQuoteView />,
+    errorElement: <AppErrorPage />,
+  },
+  {
+    path: '/public/contract/:token',
+    element: <PublicContractView />,
     errorElement: <AppErrorPage />,
   },
   {
@@ -86,6 +94,10 @@ export const router = createBrowserRouter([
         path: 'crs/bookings',
         element: <BookingsPage />,
       },
+      {
+        path: 'crs/meal-plans',
+        element: <MealPlansPage />,
+      },
       // CRM Routes
       {
         path: 'crm/leads',
@@ -94,6 +106,30 @@ export const router = createBrowserRouter([
       {
         path: 'crm/leads/:id',
         element: <LeadDetailsPage />,
+      },
+      {
+        path: 'crm/quotes/new',
+        element: <QuoteBuilderPage />,
+      },
+      {
+        path: 'crm/quotes/:id/edit',
+        element: <QuoteBuilderPage />,
+      },
+      {
+        path: 'crm/quotations',
+        element: <QuotationsPage />,
+      },
+      {
+        path: 'crm/contracts',
+        element: <ContractsPage />,
+      },
+      {
+        path: 'crm/contracts/new',
+        element: <ContractBuilderPage />,
+      },
+      {
+        path: 'crm/contracts/:id/edit',
+        element: <ContractBuilderPage />,
       },
       // Banquet Routes
       {
@@ -113,32 +149,7 @@ export const router = createBrowserRouter([
         path: 'corporate/travel-agents',
         element: <TravelAgentsPage />,
       },
-      // Finance Routes
-      {
-        path: 'finance/invoices',
-        element: <InvoicesPage />,
-      },
-      {
-        path: 'finance/payments',
-        element: <PaymentsPage />,
-      },
-      {
-        path: 'finance/cancellations',
-        element: <CancellationsPage />,
-      },
-      // Reports Routes
-      {
-        path: 'reports/pipeline',
-        element: <PipelineReportPage />,
-      },
-      {
-        path: 'reports/gst',
-        element: <GSTReportPage />,
-      },
-      {
-        path: 'reports/occupancy',
-        element: <OccupancyReportPage />,
-      },
+
       {
         path: '*',
         element: <Navigate to="/public/book" replace />,

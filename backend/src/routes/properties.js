@@ -78,4 +78,20 @@ router.patch(
   }
 );
 
+router.delete(
+  '/:id',
+  requireRoles('super_admin'),
+  param('id').isInt(),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    const id = Number(req.params.id);
+    const cur = await query(`SELECT * FROM properties WHERE id = $1 AND active = TRUE`, [id]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Property not found' });
+    await query(`UPDATE properties SET active = FALSE, updated_at = NOW() WHERE id = $1`, [id]);
+    await writeAudit(req.user.id, 'property', id, 'delete', cur.rows[0], null);
+    res.json({ success: true });
+  }
+);
+
 export default router;
