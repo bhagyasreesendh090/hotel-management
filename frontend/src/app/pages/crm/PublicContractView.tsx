@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { FileSignature, Calendar, Building, CheckCircle, XCircle } from 'lucide-react';
+import { FileSignature, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../api/client';
 import { format } from 'date-fns';
+import { DocumentLogo } from '../../components/brand/DocumentLogo';
 
 export default function PublicContractView() {
   const { token } = useParams<{ token: string }>();
@@ -49,9 +50,7 @@ export default function PublicContractView() {
         
         {/* Branding Header */}
         <div className="text-center space-y-4">
-          <div className="w-20 h-20 bg-indigo-600 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg">
-            <Building className="w-10 h-10" />
-          </div>
+          <DocumentLogo logo={property?.document_logo} className="mx-auto h-32 w-full max-w-md" />
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{property?.name || 'Hotel Properties'}</h1>
             <p className="text-slate-500 mt-1">{property?.address}</p>

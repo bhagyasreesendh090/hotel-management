@@ -133,7 +133,7 @@ const TravelAgentsPage: React.FC = () => {
         <Label htmlFor="contact_name">Contact Person</Label>
         <Input id="contact_name" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -147,7 +147,7 @@ const TravelAgentsPage: React.FC = () => {
         <Label htmlFor="commission_pct">Commission Rate (%)</Label>
         <Input id="commission_pct" type="number" step="0.01" min="0" max="100" value={form.commission_pct} onChange={(e) => setForm({ ...form, commission_pct: e.target.value })} />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={() => { setIsCreateDialogOpen(false); setIsEditDialogOpen(false); }}>Cancel</Button>
         <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : submitLabel}</Button>
       </div>

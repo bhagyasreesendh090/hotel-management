@@ -14,6 +14,8 @@ import {
   Hotel,
   Coffee,
   ChevronRight,
+  BarChart3,
+  Activity,
 } from 'lucide-react';
 
 
@@ -79,6 +81,16 @@ const Sidebar: React.FC = () => {
       to: '/crm/contracts',
       label: 'Contracts',
       icon: <Briefcase className="w-5 h-5" />,
+    },
+    {
+      to: '/crm/tracker',
+      label: 'Status Tracker',
+      icon: <BarChart3 className="w-5 h-5" />,
+    },
+    {
+      to: '/crm/interest',
+      label: 'Interest Tracker',
+      icon: <Activity className="w-5 h-5" />,
     },
   ];
 

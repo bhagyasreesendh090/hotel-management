@@ -5,10 +5,12 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { DOCUMENT_LOGOS, DocumentLogo, DocumentLogoKey, normalizeDocumentLogo } from '../../components/brand/DocumentLogo';
 
 interface Property {
   id: number;
@@ -20,6 +22,9 @@ interface Property {
   country: string;
   phone: string;
   email: string;
+  gstin?: string;
+  email_from?: string;
+  document_logo?: DocumentLogoKey;
 }
 
 interface PropertiesResponse {
@@ -28,15 +33,47 @@ interface PropertiesResponse {
 
 const PropertiesPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProperty, setEditingProperty] = useState<Property | null>(null);
   const [deleteTargetProperty, setDeleteTargetProperty] = useState<Property | null>(null);
+  const [newProperty, setNewProperty] = useState({
+    code: '',
+    name: '',
+    address: '',
+    gstin: '',
+    email_from: '',
+    document_logo: 'pramod_hotels_resorts' as DocumentLogoKey,
+  });
 
   const { data: properties = [], isLoading } = useQuery<Property[]>({
     queryKey: ['properties'],
     queryFn: async () => {
       const response = await apiClient.get<PropertiesResponse>('/api/properties');
       return Array.isArray(response.data?.properties) ? response.data.properties : [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (property: typeof newProperty) => {
+      const response = await apiClient.post('/api/properties', property);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      toast.success('Property created successfully');
+      setIsCreateDialogOpen(false);
+      setNewProperty({
+        code: '',
+        name: '',
+        address: '',
+        gstin: '',
+        email_from: '',
+        document_logo: 'pramod_hotels_resorts',
+      });
+    },
+    onError: () => {
+      toast.error('Failed to create property');
     },
   });
 
@@ -71,8 +108,13 @@ const PropertiesPage: React.FC = () => {
   });
 
   const handleEdit = (property: Property) => {
-    setEditingProperty(property);
+    setEditingProperty({ ...property, document_logo: normalizeDocumentLogo(property.document_logo) });
     setIsEditDialogOpen(true);
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    createMutation.mutate(newProperty);
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -89,8 +131,16 @@ const PropertiesPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
-        <p className="text-gray-500 mt-1">Manage your hotel properties</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
+            <p className="text-gray-500 mt-1">Manage your hotel properties</p>
+          </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Property
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -104,7 +154,7 @@ const PropertiesPage: React.FC = () => {
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>City</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead>Document Logo</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -115,8 +165,10 @@ const PropertiesPage: React.FC = () => {
                   <TableCell className="font-medium">{property.code}</TableCell>
                   <TableCell>{property.name}</TableCell>
                   <TableCell>{property.city}</TableCell>
-                  <TableCell>{property.phone}</TableCell>
-                  <TableCell>{property.email}</TableCell>
+                  <TableCell>
+                    <DocumentLogo logo={property.document_logo} className="h-12 w-36" />
+                  </TableCell>
+                  <TableCell>{property.email_from || property.email}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(property)}>
@@ -138,6 +190,85 @@ const PropertiesPage: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Property</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-code">Code</Label>
+                <Input
+                  id="new-code"
+                  value={newProperty.code}
+                  onChange={(e) => setNewProperty(prev => ({ ...prev, code: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-name">Name</Label>
+                <Input
+                  id="new-name"
+                  value={newProperty.name}
+                  onChange={(e) => setNewProperty(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="new-address">Address</Label>
+                <Input
+                  id="new-address"
+                  value={newProperty.address}
+                  onChange={(e) => setNewProperty(prev => ({ ...prev, address: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-gstin">GSTIN</Label>
+                <Input
+                  id="new-gstin"
+                  value={newProperty.gstin}
+                  onChange={(e) => setNewProperty(prev => ({ ...prev, gstin: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-email-from">Email From</Label>
+                <Input
+                  id="new-email-from"
+                  type="email"
+                  value={newProperty.email_from}
+                  onChange={(e) => setNewProperty(prev => ({ ...prev, email_from: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Document Logo</Label>
+                <Select value={newProperty.document_logo} onValueChange={(value) => setNewProperty(prev => ({ ...prev, document_logo: value as DocumentLogoKey }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOCUMENT_LOGOS.map((logo) => (
+                      <SelectItem key={logo.value} value={logo.value}>{logo.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="rounded-md border bg-white p-4">
+                  <DocumentLogo logo={newProperty.document_logo} className="mx-auto h-24 w-full max-w-md" />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Saving...' : 'Add Property'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl">
@@ -197,13 +328,32 @@ const PropertiesPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email_from">Email From</Label>
                 <Input
-                  id="email"
+                  id="email_from"
                   type="email"
-                  value={editingProperty?.email || ''}
-                  onChange={(e) => setEditingProperty(prev => prev ? { ...prev, email: e.target.value } : null)}
+                  value={editingProperty?.email_from || editingProperty?.email || ''}
+                  onChange={(e) => setEditingProperty(prev => prev ? { ...prev, email_from: e.target.value } : null)}
                 />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Document Logo</Label>
+                <Select
+                  value={normalizeDocumentLogo(editingProperty?.document_logo)}
+                  onValueChange={(value) => setEditingProperty(prev => prev ? { ...prev, document_logo: value as DocumentLogoKey } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOCUMENT_LOGOS.map((logo) => (
+                      <SelectItem key={logo.value} value={logo.value}>{logo.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="rounded-md border bg-white p-4">
+                  <DocumentLogo logo={editingProperty?.document_logo} className="mx-auto h-24 w-full max-w-md" />
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2">

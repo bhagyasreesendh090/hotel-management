@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { CheckCircle2, XCircle, Send, Building2, MapPin, Mail, AlertTriangle, FileText } from 'lucide-react';
+import { CheckCircle2, XCircle, Send, Building2, MapPin, Mail, AlertTriangle, FileText, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
@@ -10,6 +10,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { DocumentLogo } from '../../components/brand/DocumentLogo';
 
 export default function PublicQuoteView() {
   const { token } = useParams();
@@ -35,8 +36,21 @@ export default function PublicQuoteView() {
     onSuccess: () => {
       setComment('');
       queryClient.invalidateQueries({ queryKey: ['public_quote', token] });
+      toast.success('Response submitted successfully');
     },
     onError: () => toast.error('Failed to submit response')
+  });
+
+  const payMutation = useMutation({
+    mutationFn: async ({ amount, type }: { amount: number, type: 'full' | 'advance' }) => {
+      const res = await apiClient.post(`/api/public/quotations/${token}/pay-demo`, { amount, type });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Payment successful! Your booking is confirmed.');
+      queryClient.invalidateQueries({ queryKey: ['public_quote', token] });
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Payment failed')
   });
 
   if (isLoading) return <div className="flex justify-center py-20"><div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
@@ -51,175 +65,362 @@ export default function PublicQuoteView() {
     );
   }
 
-  const { quotation: q, property: p, interactions } = data;
+  const { quotation: q, property: p, interactions, lead } = data;
   const items = q.financial_summary?.items || [];
   const policies = q.policies || {};
 
-  const isLocked = ['accepted', 'rejected', 'expired'].includes(q.status);
+  const isLocked = ['accepted', 'rejected', 'expired', 'paid'].includes(q.status);
+
+  // Group items if possible (e.g. by description keywords or if we had a type field)
+  const accommodationItems = items.filter((it: any) => 
+    it.description.toLowerCase().includes('room') || 
+    it.description.toLowerCase().includes('stay') || 
+    it.description.toLowerCase().includes('bed') ||
+    it.description.toLowerCase().includes('pax')
+  );
+  
+  const fbItems = items.filter((it: any) => 
+    it.description.toLowerCase().includes('lunch') || 
+    it.description.toLowerCase().includes('dinner') || 
+    it.description.toLowerCase().includes('breakfast') || 
+    it.description.toLowerCase().includes('snack') ||
+    it.description.toLowerCase().includes('buffet') ||
+    it.description.toLowerCase().includes('tea')
+  );
+
+  const otherItems = items.filter((it: any) => 
+    !accommodationItems.includes(it) && !fbItems.includes(it)
+  );
 
   return (
-    <div className="min-h-screen bg-slate-100 py-12 px-4 sm:px-6">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-slate-200 py-8 px-4 sm:px-6 font-serif">
+      <div className="max-w-[1000px] mx-auto space-y-6">
         
-        {/* Dynamic Branding Header */}
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-3">
-          <Building2 className="w-12 h-12 mx-auto text-indigo-600" />
-          <h1 className="text-3xl font-bold text-slate-900">{p.name || 'Hotel Pramod'}</h1>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-slate-500 text-sm">
-            <span className="flex items-center gap-1"><MapPin className="w-4 h-4"/> {p.address || 'Central Avenue'}</span>
-            <span className="flex items-center gap-1"><Mail className="w-4 h-4"/> {p.email_from || 'sales@hotelpramod.com'}</span>
-          </div>
+        {/* Document Actions (Non-printable) */}
+        <div className="flex justify-end gap-3 no-print">
+           <Button variant="outline" className="bg-white" onClick={() => window.print()}>
+             Print / Download PDF
+           </Button>
+           {!isLocked && (
+             <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => interactMutation.mutate({ action: 'accept', message: 'I have formally accepted this quotation online.' })}>
+               Accept Online
+             </Button>
+           )}
         </div>
 
-        {/* Status Banner */}
-        <div className={`p-4 rounded-xl flex items-center justify-between ${q.status === 'accepted' ? 'bg-green-100 text-green-900 border border-green-200' : q.status === 'rejected' ? 'bg-red-100 text-red-900 border border-red-200' : 'bg-indigo-50 text-indigo-900 border border-indigo-100'}`}>
-          <div>
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-              <FileText className="w-5 h-5"/> Quotation {q.quotation_number}
-            </h2>
-            <p className="text-sm opacity-80 mt-1">Generated on {format(new Date(q.created_at), 'MMMM dd, yyyy')}</p>
-          </div>
-          <Badge variant="outline" className="text-sm px-4 py-1 uppercase bg-white bg-opacity-50">
-            {q.status}
-          </Badge>
-        </div>
-
-        {/* Content Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            
-            {/* Items Card */}
-            <Card className="shadow-sm">
-              <CardHeader className="bg-slate-50 border-b">
-                <CardTitle>{q.client_salutation}</CardTitle>
-                <p className="text-sm text-slate-600 font-normal">Please find the requested quotation breakdown below. Valid until {q.valid_until ? format(new Date(q.valid_until), 'MMM dd, yyyy') : 'N/A'}.</p>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-slate-50 text-slate-500 border-b">
-                    <tr>
-                      <th className="p-4 font-medium">Description</th>
-                      <th className="p-4 font-medium text-right">Price</th>
-                      <th className="p-4 font-medium text-right">Qty</th>
-                      <th className="p-4 font-medium text-right">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {items.map((it: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="p-4 font-medium text-slate-900 whitespace-normal">{it.description || '-'}</td>
-                        <td className="p-4 text-right">₹{Number(it.unit_price).toLocaleString('en-IN')}</td>
-                        <td className="p-4 text-right">{it.quantity}</td>
-                        <td className="p-4 text-right font-medium text-slate-900">₹{(Number(it.unit_price) * Number(it.quantity)).toLocaleString('en-IN')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-
-            {/* Terms */}
-            {policies.terms && (
-              <Card className="shadow-sm border-dashed">
-                 <CardHeader><CardTitle className="text-sm uppercase tracking-wide text-slate-500">Terms & Conditions</CardTitle></CardHeader>
-                 <CardContent><p className="whitespace-pre-wrap text-sm text-slate-700">{policies.terms}</p></CardContent>
-              </Card>
-            )}
-
-            {/* Interaction Thread */}
-            <Card className="shadow-sm">
-              <CardHeader className="bg-slate-50 border-b"><CardTitle>Discussions</CardTitle></CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-64 p-4">
-                  <div className="space-y-4">
-                    {interactions.length === 0 ? (
-                      <p className="text-center text-slate-400 text-sm py-8">No messages yet.</p>
-                    ) : (
-                      interactions.map((msg: any, i: number) => (
-                        <div key={i} className={`flex flex-col ${msg.sender_type === 'client' ? 'items-end' : 'items-start'}`}>
-                          <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${msg.sender_type === 'client' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-900 rounded-bl-none'}`}>
-                            <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                          </div>
-                          <span className="text-[10px] text-slate-400 mt-1">{format(new Date(msg.created_at), 'hh:mm a')}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-                
-                {!isLocked && (
-                  <div className="p-4 border-t flex gap-2 bg-slate-50 rounded-b-xl">
-                    <Textarea 
-                      placeholder="Ask a question or request a change..." 
-                      className="min-h-[44px] resize-none" 
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                    />
-                    <Button size="icon" className="shrink-0" onClick={() => interactMutation.mutate({ message: comment })} disabled={!comment.trim() || interactMutation.isPending}>
-                      <Send className="w-4 h-4"/>
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="md:col-span-1 space-y-6">
-            <Card className="sticky top-6 shadow-xl border-indigo-100 overflow-hidden">
-              <div className="bg-slate-900 p-4 text-white">
-                <h3 className="font-semibold text-lg">Financial Summary</h3>
+        {/* The Paper Document */}
+        <div className="bg-white shadow-2xl p-12 min-h-[1400px] text-slate-800 relative border border-slate-300">
+           
+           {/* Header with Branding */}
+           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-8 mb-8">
+              <div className="space-y-2">
+                 <DocumentLogo logo={p.document_logo} className="h-28 w-80" />
+                 <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{p.name || 'Pramod Hotels & Resorts'}</p>
               </div>
-              <CardContent className="p-6 space-y-4">
+              <div className="text-right text-xs space-y-1">
+                 <p className="font-bold">Date: {format(new Date(q.created_at), 'MMMM dd, yyyy')}</p>
+                 <p>Ref: {q.quotation_number}</p>
+              </div>
+           </div>
+
+           {/* Client Details */}
+           <div className="space-y-6 mb-10">
+              <div>
+                 <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">To,</p>
+                 <h2 className="text-xl font-bold text-slate-900">{lead?.contact_name || 'Valued Guest'}</h2>
+                 {lead?.contact_phone && <p className="text-sm text-slate-700">{lead.contact_phone}</p>}
+                 {lead?.contact_email && <p className="text-sm text-slate-700">{lead.contact_email}</p>}
+              </div>
+
+              <div>
+                 <p className="text-lg font-medium">{q.client_salutation},</p>
+                 <p className="mt-4 leading-relaxed">
+                    Greetings from <span className="font-bold">{p.name || 'Pramod Lands End Resort, Gopalpur'}</span>. 
+                    Based on your requirements, we are pleased to share our special quotation for your planned event as follows;
+                 </p>
+              </div>
+           </div>
+
+           {/* Event Summary Section */}
+           {policies.event_details && (
+             <div className="bg-slate-50 border-2 border-slate-200 p-6 rounded-lg mb-10 text-xs grid grid-cols-2 gap-y-2">
+                <p><span className="font-bold">Arrival date:</span> {policies.event_details.arrival_date || 'N/A'}</p>
+                <p><span className="font-bold">Departure date:</span> {policies.event_details.departure_date || 'N/A'}</p>
+                <p><span className="font-bold">Total Rooms:</span> {policies.event_details.total_rooms || 'N/A'}</p>
+                <p><span className="font-bold">Extra beds:</span> {policies.event_details.extra_beds || 'N/A'}</p>
+                <p><span className="font-bold">Occupants:</span> {policies.event_details.occupants || 'N/A'}</p>
+                <p><span className="font-bold">Accommodation package:</span> {policies.event_details.package_type || 'N/A'}</p>
+             </div>
+           )}
+
+           {/* Accommodation Section */}
+           {accommodationItems.length > 0 && (
+             <div className="space-y-4 mb-10">
+                <h3 className="text-lg font-bold border-b-2 border-slate-200 pb-1">Accommodation Details:</h3>
+                <table className="w-full border-collapse border border-slate-800 text-xs">
+                   <thead className="bg-slate-50">
+                      <tr>
+                         <th className="border border-slate-800 p-2 text-left w-1/3">Room type</th>
+                         <th className="border border-slate-800 p-2 text-center">Qty / Pax</th>
+                         <th className="border border-slate-800 p-2 text-right">Tariff</th>
+                         <th className="border border-slate-800 p-2 text-center">GST %</th>
+                         <th className="border border-slate-800 p-2 text-right">Total (Incl. Tax)</th>
+                      </tr>
+                   </thead>
+                   <tbody>
+                      {accommodationItems.map((it: any, i: number) => {
+                         const sub = Number(it.unit_price) * Number(it.quantity);
+                         const tax = sub * (Number(it.tax_rate) / 100);
+                         return (
+                            <tr key={i}>
+                               <td className="border border-slate-800 p-2 font-medium">{it.description}</td>
+                               <td className="border border-slate-800 p-2 text-center">{it.quantity}</td>
+                               <td className="border border-slate-800 p-2 text-right">₹{Number(it.unit_price).toLocaleString('en-IN')}</td>
+                               <td className="border border-slate-800 p-2 text-center">{it.tax_rate}%</td>
+                               <td className="border border-slate-800 p-2 text-right font-bold">₹{(sub + tax).toLocaleString('en-IN')}</td>
+                            </tr>
+                         );
+                      })}
+                   </tbody>
+                </table>
+             </div>
+           )}
+
+           {/* F&B Section */}
+           {fbItems.length > 0 && (
+             <div className="space-y-4 mb-10">
+                <h3 className="text-lg font-bold border-b-2 border-slate-200 pb-1">Food & Beverage Details:</h3>
+                <table className="w-full border-collapse border border-slate-800 text-xs">
+                   <thead className="bg-slate-50">
+                      <tr>
+                         <th className="border border-slate-800 p-2 text-left w-1/3">Details</th>
+                         <th className="border border-slate-800 p-2 text-center">Pax</th>
+                         <th className="border border-slate-800 p-2 text-right">Rate / Person</th>
+                         <th className="border border-slate-800 p-2 text-center">GST %</th>
+                         <th className="border border-slate-800 p-2 text-right">Total</th>
+                      </tr>
+                   </thead>
+                   <tbody>
+                      {fbItems.map((it: any, i: number) => {
+                        const sub = Number(it.unit_price) * Number(it.quantity);
+                        const tax = sub * (Number(it.tax_rate) / 100);
+                        return (
+                          <tr key={i}>
+                             <td className="border border-slate-800 p-2 font-medium">{it.description}</td>
+                             <td className="border border-slate-800 p-2 text-center">{it.quantity}</td>
+                             <td className="border border-slate-800 p-2 text-right">₹{Number(it.unit_price).toLocaleString('en-IN')}</td>
+                             <td className="border border-slate-800 p-2 text-center">{it.tax_rate}%</td>
+                             <td className="border border-slate-800 p-2 text-right font-bold">₹{(sub + tax).toLocaleString('en-IN')}</td>
+                          </tr>
+                        );
+                      })}
+                   </tbody>
+                </table>
+             </div>
+           )}
+
+           {/* Grand Summary */}
+           <div className="flex justify-end mb-12">
+              <div className="w-1/2 space-y-2 border-t-4 border-slate-900 pt-4">
                  <div className="flex justify-between text-sm">
-                   <span className="text-slate-500">Subtotal</span>
-                   <span className="font-medium">₹{Number(q.total_amount).toLocaleString('en-IN')}</span>
-                 </div>
-                 <div className="flex justify-between text-sm">
-                   <span className="text-slate-500">GST Taxes</span>
-                   <span className="font-medium">₹{Number(q.tax_amount).toLocaleString('en-IN')}</span>
+                    <span className="font-medium">Total Estimate Cost:</span>
+                    <span className="font-bold">₹{Number(q.total_amount + q.tax_amount).toLocaleString('en-IN')}</span>
                  </div>
                  {Number(q.discount_amount) > 0 && (
-                   <div className="flex justify-between text-sm text-green-600">
-                     <span>Discount Applied</span>
-                     <span className="font-medium">- ₹{Number(q.discount_amount).toLocaleString('en-IN')}</span>
+                   <div className="flex justify-between text-sm text-green-700">
+                      <span>Discount:</span>
+                      <span>- ₹{Number(q.discount_amount).toLocaleString('en-IN')}</span>
                    </div>
                  )}
-                 <div className="pt-4 border-t flex justify-between items-center">
-                   <span className="font-bold text-slate-900">Total Payable</span>
-                   <span className="text-2xl font-bold text-indigo-600">₹{Number(q.final_amount).toLocaleString('en-IN')}</span>
+                 <div className="flex justify-between text-xl bg-slate-900 text-white p-3 rounded mt-2">
+                    <span className="font-black uppercase tracking-tighter">Final Total</span>
+                    <span className="font-black italic">₹{Number(q.final_amount).toLocaleString('en-IN')}</span>
                  </div>
-              </CardContent>
-              
+              </div>
+           </div>
+
+           {/* Policy & Notes */}
+           <div className="grid grid-cols-2 gap-10 mb-10 text-[10px] leading-relaxed">
+              <div className="space-y-4">
+                 <h4 className="font-bold border-b border-slate-300">Bank Details for Payment:</h4>
+                 <div className="grid grid-cols-2 gap-x-2">
+                    <span className="text-slate-500">Name of Company:</span><span className="font-bold">Padma Eastern Hotels Private Limited</span>
+                    <span className="text-slate-500">Bank Name:</span><span className="font-bold">HDFC Bank</span>
+                    <span className="text-slate-500">Account Name:</span><span className="font-bold">Padma Eastern Hotels Private Limited</span>
+                    <span className="text-slate-500">Account Number:</span><span className="font-bold">50200090446011</span>
+                    <span className="text-slate-500">IFSC Code:</span><span className="font-bold">HDFC0001107</span>
+                    <span className="text-slate-500">Branch:</span><span>Berhampur, Odisha</span>
+                 </div>
+                 <p className="bg-amber-50 p-2 italic border-l-2 border-amber-400">Payment advice to be shared by the guest on every transaction to the hotel for payment acknowledgement against the booking.</p>
+              </div>
+
+              <div className="space-y-4">
+                 <h4 className="font-bold border-b border-slate-300">Important Notes:</h4>
+                 <ul className="list-disc pl-4 space-y-1">
+                    <li>Address proof with photo is mandatory for check-in.</li>
+                    <li>Check-in time is 14:00 Hrs, and check-out time is 11:00 Hrs.</li>
+                    <li>Early check-in/Late check-out subject to availability.</li>
+                    <li>Menu confirmation required at least 15 days prior to event.</li>
+                    <li>Minimum advance of 5,00,000/- is mandatory for confirmation.</li>
+                 </ul>
+              </div>
+           </div>
+
+           {/* Terms Section */}
+           <div className="border-t-2 border-slate-100 pt-8 mb-16">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Terms & Conditions</h4>
+              <div className="text-[9px] text-slate-600 grid grid-cols-2 gap-x-12 gap-y-4 whitespace-pre-wrap leading-tight">
+                 {policies.terms || `1. A valid address proof with photo is mandatory to be produced by all the respective guests at front desk to proceed with the check-in.\n2. Our check-in time is 14:00 Hrs, and check-out time is 11:00 Hrs.\n3. Early check-in after 10:00 am and late check-out before 12:00 pm can be subject to the availability of rooms and free of any additional charges.\n4. Payments should be shared 15 days prior to the event date.\n5. Alcohol policy strictly follows local government regulations.`}
+              </div>
+           </div>
+
+           {/* Signature Footer */}
+           <div className="flex justify-between items-end mt-20 pt-10 border-t border-slate-100 text-[10px]">
+              <div>
+                 <p className="font-bold">Thanks & regards,</p>
+                 <p className="text-lg font-bold mt-2 text-slate-900 uppercase">Sales & Marketing Team</p>
+                 <p>{p.name || 'Pramod Hotels & Resorts'}</p>
+                 <p>{p.address || 'Odisha, India'}</p>
+              </div>
+              <div className="text-right italic text-slate-400">
+                 This is a computer generated document and does not require a physical signature.
+              </div>
+           </div>
+
+        </div>
+
+        {/* Discussion / Actions Sidebar (Non-printable) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
+           <div className="md:col-span-2">
+             <Card className="shadow-sm">
+                <CardHeader className="bg-slate-50 border-b"><CardTitle className="text-sm">Discussions & Queries</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-48 p-4">
+                    <div className="space-y-4">
+                      {interactions.length === 0 ? (
+                        <p className="text-center text-slate-400 text-sm py-8 italic">Start a conversation with our sales manager...</p>
+                      ) : (
+                        interactions.map((msg: any, i: number) => (
+                          <div key={i} className={`flex flex-col ${msg.sender_type === 'client' ? 'items-end' : 'items-start'}`}>
+                            <div className={`max-w-[80%] rounded-xl px-4 py-2 ${msg.sender_type === 'client' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-900 rounded-bl-none'}`}>
+                              <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                            </div>
+                            <span className="text-[10px] text-slate-400 mt-1">{format(new Date(msg.created_at), 'hh:mm a')}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ScrollArea>
+                  {!isLocked && (
+                    <div className="p-4 border-t flex gap-2 bg-slate-50">
+                      <Textarea 
+                        placeholder="Request a change or ask a question..." 
+                        className="min-h-[44px] resize-none" 
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                      />
+                      <Button size="icon" className="shrink-0" onClick={() => interactMutation.mutate({ message: comment })} disabled={!comment.trim() || interactMutation.isPending}>
+                        <Send className="w-4 h-4"/>
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+             </Card>
+           </div>
+           <div className="md:col-span-1 space-y-6">
               {!isLocked && (
-                <CardFooter className="bg-slate-50 flex-col gap-3 p-4">
-                  <Button 
-                    className="w-full bg-green-600 hover:bg-green-700 text-white" size="lg"
-                    onClick={() => {
-                      toast('Processing acceptance...');
-                      interactMutation.mutate({ action: 'accept', message: 'I have formally accepted this quotation online.' });
-                    }}
-                    disabled={interactMutation.isPending}
-                  >
-                    <CheckCircle2 className="w-5 h-5 mr-2"/> Accept & Confirm
-                  </Button>
-                  <Button 
-                    variant="outline" className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200" 
-                    onClick={() => {
-                      if(window.confirm('Are you sure you want to officially reject this quote?')) {
-                        interactMutation.mutate({ action: 'reject', message: 'I have rejected this quotation.' });
-                      }
-                    }}
-                    disabled={interactMutation.isPending}
-                  >
-                    <XCircle className="w-4 h-4 mr-2"/> Decline Quote
-                  </Button>
-                </CardFooter>
+                <div className="space-y-3">
+                   <Button 
+                     className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-bold" 
+                     onClick={() => interactMutation.mutate({ action: 'accept', message: 'I have formally accepted this quotation online.' })}
+                     disabled={interactMutation.isPending}
+                   >
+                     Confirm Quote
+                   </Button>
+                   <Button 
+                     variant="outline" className="w-full h-12 border-red-200 text-red-600 hover:bg-red-50"
+                     onClick={() => { if(window.confirm('Officially decline this quote?')) interactMutation.mutate({ action: 'reject', message: 'Decline.' }); }}
+                     disabled={interactMutation.isPending}
+                   >
+                     Decline
+                   </Button>
+                </div>
               )}
-            </Card>
-          </div>
+
+              {q.status === 'accepted' && (
+                <Card className="border-indigo-200 bg-indigo-50 shadow-md">
+                  <CardHeader className="pb-3 border-b border-indigo-100">
+                    <CardTitle className="text-indigo-900 flex items-center gap-2 text-base">
+                      <CreditCard className="w-5 h-5 text-indigo-600" /> Payment Required
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4 space-y-4">
+                    <p className="text-sm text-indigo-800 leading-relaxed">
+                      Your quotation is accepted and room/venue is on <strong>HOLD</strong>. 
+                      Please complete your payment to confirm the booking.
+                    </p>
+                    <div className="space-y-2">
+                      <Button 
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12"
+                        onClick={() => {
+                          if (window.confirm(`Process demo payment of ₹${Number(q.final_amount).toLocaleString('en-IN')}?`)) {
+                            payMutation.mutate({ amount: Number(q.final_amount), type: 'full' });
+                          }
+                        }}
+                        disabled={payMutation.isPending}
+                      >
+                        Pay Full (₹{Number(q.final_amount).toLocaleString('en-IN')})
+                      </Button>
+                      <Button 
+                        variant="outline"
+                        className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-100 bg-white h-12"
+                        onClick={() => {
+                          const advance = Number(q.final_amount) * 0.5;
+                          if (window.confirm(`Process 50% advance demo payment of ₹${advance.toLocaleString('en-IN')}?`)) {
+                            payMutation.mutate({ amount: advance, type: 'advance' });
+                          }
+                        }}
+                        disabled={payMutation.isPending}
+                      >
+                        Pay 50% Advance (₹{(Number(q.final_amount) * 0.5).toLocaleString('en-IN')})
+                      </Button>
+                    </div>
+                    <p className="text-xs text-indigo-500 text-center">
+                      * This is a demo payment gateway.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {q.status === 'paid' && (
+                <Card className="border-green-200 bg-green-50 shadow-md">
+                  <CardContent className="pt-6 space-y-4 text-center">
+                    <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-green-900 text-lg">Booking Confirmed</h3>
+                      <p className="text-sm text-green-800 mt-1">Payment has been successfully received.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+           </div>
         </div>
         
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; padding: 0 !important; }
+          .min-h-screen { min-height: auto !important; padding: 0 !important; }
+          .max-w-[1000px] { max-width: none !important; margin: 0 !important; }
+          .shadow-2xl { box-shadow: none !important; border: none !important; }
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;700;900&display=swap');
+        .font-serif { font-family: 'Crimson Pro', serif; }
+      `}} />
     </div>
   );
 }

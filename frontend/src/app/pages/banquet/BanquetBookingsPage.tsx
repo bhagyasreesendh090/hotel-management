@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router';
 import {
   CalendarDays, LayoutGrid, Plus, UtensilsCrossed, Search, Edit2, Trash2,
-  X, Check, ChevronDown, IndianRupee, Users, Tag, PlusCircle,
+  X, Check, ChevronDown, IndianRupee, Users, Tag, PlusCircle, Send,
+  Building2, Clock3, ClipboardList, Sparkles, MapPin, CircleDot, CalendarCheck,
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -119,12 +121,20 @@ const statusToneClasses: Record<string, string> = {
   CXL:       'bg-red-100   text-red-700',
 };
 
-const venueTypeIcon: Record<string, string> = {
-  banquet_hall:     '🏛️',
-  lawn:             '🌿',
-  conference_room:  '💼',
-  terrace:          '🌇',
-  other:            '📍',
+const venueTypeLabel: Record<string, string> = {
+  banquet_hall: 'Banquet Hall',
+  lawn: 'Lawn',
+  conference_room: 'Conference Room',
+  terrace: 'Terrace',
+  other: 'Other',
+};
+
+const venueTypeAccent: Record<string, string> = {
+  banquet_hall: 'from-slate-800 to-slate-700',
+  lawn: 'from-emerald-700 to-teal-700',
+  conference_room: 'from-sky-800 to-indigo-800',
+  terrace: 'from-amber-700 to-orange-700',
+  other: 'from-zinc-800 to-stone-700',
 };
 
 function formatCurrency(value: number) {
@@ -151,6 +161,7 @@ function SummaryRow({ label, value, bold = false }: { label: string; value: stri
 export default function BanquetBookingsPage() {
   const { selectedPropertyId } = useProperty();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('availability');
   const [availabilityDate, setAvailabilityDate] = useState(todayString);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -348,22 +359,75 @@ export default function BanquetBookingsPage() {
   };
 
   const isLoading = bookingsLoading || !metadata;
+  const availabilitySummary = useMemo(() => {
+    const sessions = availability.flatMap((row) => row.sessions);
+    return {
+      venues: availability.length,
+      total: sessions.length,
+      open: sessions.filter((session) => !session.booking_id).length,
+      tentative: sessions.filter((session) => session.state === 'amber').length,
+      confirmed: sessions.filter((session) => session.state === 'blue').length,
+    };
+  }, [availability]);
+
+  const activeBookings = useMemo(
+    () => bookings.filter((booking) => booking.status !== 'CXL'),
+    [bookings]
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Banquet Availability & Bookings</h1>
-          <p className="mt-1 text-gray-500">Track session-wise venue occupancy, book banquet slots, and review menu packages.</p>
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-6 bg-[linear-gradient(135deg,#0f172a_0%,#334155_58%,#0f766e_100%)] px-6 py-6 text-white lg:grid-cols-[1.35fr,1fr]">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/85">
+              <Sparkles className="h-3.5 w-3.5" />
+              Banquet operations
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Banquet Availability & Bookings</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-200">
+                Plan venue sessions, hold banquet slots, and review event packages from one working board.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-white text-slate-900 hover:bg-slate-100">
+                <Plus className="h-4 w-4" />
+                New Banquet Booking
+              </Button>
+              <Button type="button" variant="outline" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white" onClick={() => setActiveTab('bookings')}>
+                <ClipboardList className="h-4 w-4" />
+                View Bookings
+              </Button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-white/15 bg-white/10 p-4">
+              <Building2 className="h-5 w-5 text-teal-100" />
+              <div className="mt-3 text-2xl font-bold">{availabilitySummary.venues}</div>
+              <div className="text-xs text-slate-200">Venues</div>
+            </div>
+            <div className="rounded-xl border border-white/15 bg-white/10 p-4">
+              <Clock3 className="h-5 w-5 text-sky-100" />
+              <div className="mt-3 text-2xl font-bold">{availabilitySummary.total}</div>
+              <div className="text-xs text-slate-200">Sessions</div>
+            </div>
+            <div className="rounded-xl border border-white/15 bg-white/10 p-4">
+              <CircleDot className="h-5 w-5 text-emerald-100" />
+              <div className="mt-3 text-2xl font-bold">{availabilitySummary.open}</div>
+              <div className="text-xs text-slate-200">Open slots</div>
+            </div>
+            <div className="rounded-xl border border-white/15 bg-white/10 p-4">
+              <CalendarCheck className="h-5 w-5 text-amber-100" />
+              <div className="mt-3 text-2xl font-bold">{activeBookings.length}</div>
+              <div className="text-xs text-slate-200">Active bookings</div>
+            </div>
+          </div>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Banquet Booking
-        </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 md:w-[540px]">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-5">
+        <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl border border-slate-200 bg-white p-1 shadow-sm md:w-[560px]">
           <TabsTrigger value="availability">
             <CalendarDays className="h-4 w-4" />
             Availability
@@ -381,31 +445,37 @@ export default function BanquetBookingsPage() {
         <TabsContent value="availability" className="space-y-5">
 
           {/* ── Toolbar: date picker + legend ── */}
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-slate-400" />
-              <span className="text-sm font-medium text-slate-600">Event Date</span>
+          <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm lg:flex-row lg:items-center">
+            <div>
+              <div className="text-sm font-semibold text-slate-900">Availability Board</div>
+              <div className="text-xs text-slate-500">Pick a date, then choose an open session to create a booking.</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 lg:ml-auto">
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <CalendarDays className="h-5 w-5 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">Event Date</span>
               <Input
                 id="availability_date"
                 type="date"
                 value={availabilityDate}
                 onChange={(e) => setAvailabilityDate(e.target.value)}
-                className="w-40 rounded-lg border-slate-200 text-sm"
+                  className="h-8 w-40 rounded-md border-slate-200 bg-white text-sm"
               />
             </div>
-            <div className="ml-auto flex items-center gap-4 text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
                 Open / Enquiry
               </span>
-              <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
                 Tentative
               </span>
-              <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                 Confirmed
               </span>
+              </div>
             </div>
           </div>
 
@@ -416,33 +486,40 @@ export default function BanquetBookingsPage() {
               <p className="mt-3 text-sm text-slate-400">Loading venues…</p>
             </div>
           ) : availability.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-20">
-              <span className="text-5xl">🏛️</span>
-              <p className="mt-3 text-sm text-slate-500">No active venues found for the selected property.</p>
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white py-20 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                <Building2 className="h-7 w-7" />
+              </div>
+              <p className="mt-4 text-sm font-medium text-slate-700">No active venues found</p>
+              <p className="mt-1 text-xs text-slate-500">Add venues and session slots before using the availability board.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {availability.map((row) => (
                 <div
                   key={row.venue.id}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md"
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md"
                 >
                   {/* Venue header */}
-                  <div className="flex items-center gap-4 border-b border-slate-100 bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-4">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-2xl">
-                      {venueTypeIcon[row.venue.venue_type] ?? '📍'}
+                  <div className={`flex items-center gap-4 border-b border-slate-100 bg-gradient-to-r ${venueTypeAccent[row.venue.venue_type] ?? venueTypeAccent.other} px-6 py-4`}>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/20">
+                      <Building2 className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-base font-bold text-white">{row.venue.name}</h3>
-                      <p className="mt-0.5 text-xs text-slate-300">
-                        {row.venue.venue_type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-200">
+                        <span>{venueTypeLabel[row.venue.venue_type] ?? titleize(row.venue.venue_type)}</span>
                         {row.venue.capacity_min != null || row.venue.capacity_max != null ? (
-                          <> &nbsp;·&nbsp; {row.venue.capacity_min ?? '--'} – {row.venue.capacity_max ?? '--'} pax</>
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5" />
+                            {row.venue.capacity_min ?? '--'} - {row.venue.capacity_max ?? '--'} pax
+                          </span>
                         ) : null}
                       </p>
                     </div>
                     {row.venue.floor_plan_notes && (
-                      <span className="hidden rounded-full bg-white/10 px-3 py-1 text-xs text-slate-300 sm:inline">
+                      <span className="hidden max-w-xs truncate rounded-full bg-white/10 px-3 py-1 text-xs text-slate-200 sm:inline">
+                        <MapPin className="mr-1 inline h-3.5 w-3.5" />
                         {row.venue.floor_plan_notes}
                       </span>
                     )}
@@ -452,7 +529,7 @@ export default function BanquetBookingsPage() {
                   </div>
 
                   {/* Sessions row */}
-                  <div className="flex flex-wrap gap-3 p-5">
+                  <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
                     {row.sessions.map((session) => {
                       const tone = session.state as 'red' | 'amber' | 'blue';
                       const isBlocked = tone === 'blue';
@@ -462,7 +539,7 @@ export default function BanquetBookingsPage() {
                           type="button"
                           onClick={() => handleAvailabilityPick(row.venue, session.slot_id)}
                           disabled={isBlocked}
-                          className={`group relative flex min-w-[175px] flex-col gap-1 rounded-xl border-l-4 px-4 py-3 text-left shadow-sm transition-all
+                          className={`group relative flex min-h-[118px] flex-col justify-between gap-2 rounded-xl border border-l-4 px-4 py-3 text-left shadow-sm transition-all
                             ${slotToneClasses[tone] ?? slotToneClasses.red}
                             ${isBlocked ? 'cursor-not-allowed opacity-75' : 'hover:-translate-y-0.5 hover:shadow-md active:scale-95'}`}
                         >
@@ -478,12 +555,13 @@ export default function BanquetBookingsPage() {
                           </div>
 
                           {/* Time */}
-                          <span className="text-xs opacity-70">
+                          <span className="inline-flex items-center gap-1.5 text-xs opacity-70">
+                            <Clock3 className="h-3.5 w-3.5" />
                             {session.start_time.slice(0, 5)} – {session.end_time.slice(0, 5)}
                           </span>
 
                           {/* Event info or CTA */}
-                          <span className="mt-1 text-xs font-medium opacity-80">
+                          <span className="rounded-lg bg-white/60 px-2.5 py-1.5 text-xs font-medium opacity-90">
                             {session.booking_id
                               ? `${titleize(session.event_category)} / ${titleize(session.event_sub_type)}`
                               : isBlocked ? 'Fully booked' : '+ Create booking'}
@@ -499,9 +577,28 @@ export default function BanquetBookingsPage() {
         </TabsContent>
 
         <TabsContent value="bookings" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Banquet Bookings</CardTitle>
+          <Card className="overflow-hidden border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-100 bg-white">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle className="text-lg">Current Banquet Bookings</CardTitle>
+                  <p className="mt-1 text-sm text-slate-500">Review status, event mix, pax, and session assignments.</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="text-base font-bold text-slate-900">{bookings.length}</div>
+                    <div className="text-slate-500">Total</div>
+                  </div>
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <div className="text-base font-bold text-emerald-800">{activeBookings.length}</div>
+                    <div className="text-emerald-700">Active</div>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                    <div className="text-base font-bold text-amber-800">{bookings.filter((booking) => booking.status === 'TENT').length}</div>
+                    <div className="text-amber-700">Tentative</div>
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
@@ -527,13 +624,21 @@ export default function BanquetBookingsPage() {
                     </TableHeader>
                     <TableBody>
                       {bookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                          <TableCell>{booking.event_date ? format(new Date(String(booking.event_date)), 'MMM dd, yyyy') : '--'}</TableCell>
+                        <TableRow key={booking.id} className="hover:bg-slate-50">
+                          <TableCell>
+                            <div className="font-medium text-slate-900">{booking.event_date ? format(new Date(String(booking.event_date)), 'MMM dd, yyyy') : '--'}</div>
+                            <div className="text-xs text-slate-500">#{booking.id}</div>
+                          </TableCell>
                           <TableCell>
                             <div className="font-medium">{String(booking.venue_name ?? '--')}</div>
                             <div className="text-xs text-slate-500">{booking.with_room ? 'With room' : 'Banquet only'}</div>
                           </TableCell>
-                          <TableCell>{String(booking.slot_label ?? '--')}</TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
+                              <Clock3 className="h-3.5 w-3.5 text-slate-400" />
+                              {String(booking.slot_label ?? '--')}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <div>{titleize(String(booking.event_category ?? ''))}</div>
                             <div className="text-xs text-slate-500">{titleize(String(booking.event_sub_type ?? ''))}</div>
@@ -550,9 +655,24 @@ export default function BanquetBookingsPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             {booking.status !== 'CXL' && (
-                              <Button variant="ghost" size="sm" onClick={() => openEdit(booking)}>
-                                Update
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost" size="sm"
+                                  title="Send Quotation"
+                                  disabled={['QTN-HOLD','CONF-U','CONF-P'].includes(String(booking.status))}
+                                  onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set('banquet_booking_id', String(booking.id));
+                                    if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
+                                    navigate(`/crm/quotes/new?${params.toString()}`);
+                                  }}
+                                >
+                                  <Send className="h-4 w-4 text-indigo-600" />
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => openEdit(booking)}>
+                                  Update
+                                </Button>
+                              </div>
                             )}
                           </TableCell>
                         </TableRow>

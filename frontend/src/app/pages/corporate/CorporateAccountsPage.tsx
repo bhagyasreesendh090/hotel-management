@@ -136,7 +136,7 @@ const CorporateAccountsPage: React.FC = () => {
         <Label htmlFor="contact_person">Contact Person</Label>
         <Input id="contact_person" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -150,7 +150,7 @@ const CorporateAccountsPage: React.FC = () => {
         <Label htmlFor="billing_address">Billing Address</Label>
         <Input id="billing_address" value={form.billing_address} onChange={(e) => setForm({ ...form, billing_address: e.target.value })} />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={() => { setIsCreateDialogOpen(false); setIsEditDialogOpen(false); }}>Cancel</Button>
         <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : submitLabel}</Button>
       </div>

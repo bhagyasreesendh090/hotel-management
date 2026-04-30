@@ -50,6 +50,7 @@ const LeadsPage: React.FC = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [showLostLeads, setShowLostLeads] = useState(false);
   const [isDuplicateCheckOpen, setIsDuplicateCheckOpen] = useState(false);
   const [duplicates, setDuplicates] = useState<any[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -130,19 +131,32 @@ const LeadsPage: React.FC = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      // Mark as lost — soft-delete via status field using existing PATCH
+      // Soft-delete via status field
       await apiClient.patch(`/api/crm/leads/${id}`, {
         status: 'lost',
-        lost_reason: 'Deleted by user',
+        lost_reason: 'Archived by user',
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
-      toast.success('Lead removed from list');
+      toast.success('Lead moved to archive');
       setIsDeleteDialogOpen(false);
       setSelectedLead(null);
     },
     onError: () => toast.error('Failed to remove lead'),
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/api/crm/leads/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Lead permanently deleted');
+      setIsDeleteDialogOpen(false);
+      setSelectedLead(null);
+    },
+    onError: () => toast.error('Permanent delete failed'),
   });
 
   const handleCreate = (e: React.FormEvent) => {
@@ -223,6 +237,14 @@ const LeadsPage: React.FC = () => {
           <p className="text-gray-500 mt-1">Manage sales leads and opportunities</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant={showLostLeads ? 'default' : 'outline'}
+            onClick={() => setShowLostLeads(!showLostLeads)}
+            className="gap-2"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            {showLostLeads ? 'Hide Lost' : 'Show Lost'}
+          </Button>
           <Button variant="outline" onClick={handleExportCSV} disabled={leads.length === 0} className="gap-2">
             <Download className="w-4 h-4" />
             Export CSV
@@ -254,8 +276,10 @@ const LeadsPage: React.FC = () => {
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {leads.map((lead) => (
+            <TableBody>
+              {leads
+                .filter((lead) => showLostLeads || lead.status !== 'lost')
+                .map((lead) => (
                   <TableRow key={lead.id}>
                     <TableCell className="font-medium">{lead.contact_name}</TableCell>
                     <TableCell>{lead.company ?? '—'}</TableCell>
@@ -479,17 +503,31 @@ const LeadsPage: React.FC = () => {
             <p className="text-sm text-gray-600">
               Are you sure you want to remove the lead for{' '}
               <span className="font-semibold">{selectedLead?.contact_name}</span>?
-              This will mark the lead as <strong>Lost</strong>.
             </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+            <div className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800 border border-amber-200">
+              <strong>Note:</strong> Regular remove marks it as &quot;Lost&quot; to keep history. Managers can use permanent delete.
+            </div>
+            <div className="flex flex-col gap-2 pt-2">
               <Button
                 variant="destructive"
                 onClick={() => selectedLead && deleteMutation.mutate(selectedLead.id)}
-                disabled={deleteMutation.isPending}
+                disabled={deleteMutation.isPending || permanentDeleteMutation.isPending}
               >
-                {deleteMutation.isPending ? 'Removing...' : 'Remove'}
+                {deleteMutation.isPending ? 'Archiving...' : 'Move to Lost (Soft Delete)'}
               </Button>
+              <Button
+                variant="outline"
+                className="text-red-600 border-red-200 hover:bg-red-50"
+                onClick={() => {
+                  if (selectedLead && confirm('THIS IS PERMANENT. Are you sure?')) {
+                    permanentDeleteMutation.mutate(selectedLead.id);
+                  }
+                }}
+                disabled={deleteMutation.isPending || permanentDeleteMutation.isPending}
+              >
+                Permanent Delete (Hard Delete)
+              </Button>
+              <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
             </div>
           </div>
         </DialogContent>

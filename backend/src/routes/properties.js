@@ -13,13 +13,13 @@ router.get('/', async (req, res) => {
   const unrestricted = canAccessAllProperties(req.user.role);
   if (unrestricted) {
     const { rows } = await query(
-      `SELECT id, code, name, address, gstin, email_from, active FROM properties WHERE active = TRUE ORDER BY code`
+      `SELECT id, code, name, address, gstin, email_from, document_logo, active FROM properties WHERE active = TRUE ORDER BY code`
     );
     return res.json({ properties: rows });
   }
   if (!req.user.propertyIds?.length) return res.json({ properties: [] });
   const { rows } = await query(
-    `SELECT id, code, name, address, gstin, email_from, active FROM properties
+    `SELECT id, code, name, address, gstin, email_from, document_logo, active FROM properties
      WHERE active = TRUE AND id = ANY($1::int[]) ORDER BY code`,
     [req.user.propertyIds]
   );
@@ -32,15 +32,16 @@ router.post(
   body('code').isString().isLength({ min: 2, max: 16 }),
   body('name').isString().isLength({ min: 2 }),
   body('gstin').optional().isString(),
+  body('document_logo').optional().isIn(['pramod_hotels_resorts', 'pramod_lands_end_radisson']),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-    const { code, name, gstin, address, email_from } = req.body;
+    const { code, name, gstin, address, email_from, document_logo } = req.body;
     const { rows } = await query(
-      `INSERT INTO properties (code, name, gstin, address, email_from)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, code, name, gstin, address, email_from, active`,
-      [code.toUpperCase(), name, gstin ?? null, address ?? null, email_from ?? null]
+      `INSERT INTO properties (code, name, gstin, address, email_from, document_logo)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, code, name, gstin, address, email_from, document_logo, active`,
+      [code.toUpperCase(), name, gstin ?? null, address ?? null, email_from ?? null, document_logo ?? 'pramod_hotels_resorts']
     );
     await writeAudit(req.user.id, 'property', rows[0].id, 'create', null, rows[0]);
     res.status(201).json({ property: rows[0] });
@@ -56,7 +57,13 @@ router.patch(
     if (req.user.role === 'branch_manager' && !req.user.propertyIds?.includes(id)) {
       return res.status(403).json({ error: 'Property access denied' });
     }
-    const allowed = ['name', 'address', 'gstin', 'email_from', 'cancellation_policy_default', 'advance_rule_note'];
+    if (
+      req.body.document_logo !== undefined &&
+      !['pramod_hotels_resorts', 'pramod_lands_end_radisson'].includes(req.body.document_logo)
+    ) {
+      return res.status(400).json({ error: 'Invalid document logo' });
+    }
+    const allowed = ['name', 'address', 'gstin', 'email_from', 'document_logo', 'cancellation_policy_default', 'advance_rule_note'];
     const sets = [];
     const vals = [];
     let i = 1;

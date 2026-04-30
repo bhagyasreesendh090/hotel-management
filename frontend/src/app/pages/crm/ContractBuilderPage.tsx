@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, Trash2, Link as LinkIcon, Mail } from 'lucide-react';
+import { ArrowLeft, Save, Send, Trash2, Link as LinkIcon, Mail, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -120,24 +120,28 @@ export default function ContractBuilderPage() {
 
   return (
     <div className="space-y-6 pb-24 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isEditing ? `Edit Contract ${existingContract?.contract_number}` : 'Draft Legal Contract'}</h1>
-            <p className="text-gray-500 mt-1">Bind leads and corporate accounts to verified payment stipules digitally.</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">
+              {isEditing ? `Edit Contract ${existingContract?.contract_number}` : 'Draft Legal Contract'}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Bind leads and corporate accounts digitally.</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {isEditing && existingContract?.secure_token && (
             <>
-              <Button variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50" onClick={() => window.open(`/public/contract/${existingContract.secure_token}`, '_blank')}>
+              <Button variant="outline" size="sm" className="border-indigo-200 text-indigo-700 bg-indigo-50" onClick={() => window.open(`/public/contract/${existingContract.secure_token}`, '_blank')}>
                 Preview Layout
               </Button>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsEmailDialogOpen(true)}>
-                <Mail className="w-4 h-4 mr-2" /> Dispatch Email
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsEmailDialogOpen(true)}>
+                <Mail className="w-4 h-4 mr-1 sm:mr-2" /> 
+                <span className="hidden xs:inline">Dispatch Email</span>
+                <span className="xs:hidden">Dispatch</span>
               </Button>
             </>
           )}
@@ -226,35 +230,81 @@ export default function ContractBuilderPage() {
       </div>
 
       <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Formalize & Dispatch Contract</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Target Email (To)</Label>
-                <Input value={emailData.to_email} onChange={e => setEmailData(prev => ({...prev, to_email: e.target.value}))} placeholder="client@domain.com" />
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-indigo-400" />
+              <h2 className="font-semibold text-lg">Legal Contract Dispatch</h2>
+            </div>
+            <Badge className="bg-amber-500 text-white border-none">FORMAL</Badge>
+          </div>
+          
+          <div className="p-0 bg-white">
+            <div className="border-b">
+              <div className="flex items-center px-6 py-3 gap-4">
+                <span className="text-sm font-medium text-slate-500 w-16">To:</span>
+                <input 
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-1"
+                  value={emailData.to_email} 
+                  onChange={e => setEmailData(prev => ({...prev, to_email: e.target.value}))} 
+                  placeholder="client@domain.com"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>CC Manager</Label>
-                <Input value={emailData.cc_email} onChange={e => setEmailData(prev => ({...prev, cc_email: e.target.value}))} placeholder="gm@hotel.com" />
+            </div>
+            <div className="border-b">
+              <div className="flex items-center px-6 py-3 gap-4">
+                <span className="text-sm font-medium text-slate-500 w-16">Cc:</span>
+                <input 
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-1"
+                  value={emailData.cc_email} 
+                  onChange={e => setEmailData(prev => ({...prev, cc_email: e.target.value}))} 
+                  placeholder="legal@hotel.com"
+                />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Legal Subject String</Label>
-              <Input value={emailData.subject} onChange={e => setEmailData(prev => ({...prev, subject: e.target.value}))} />
+            <div className="border-b bg-slate-50/50">
+              <div className="flex items-center px-6 py-3 gap-4">
+                <span className="text-sm font-medium text-slate-500 w-16">Subject:</span>
+                <input 
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-semibold py-1"
+                  value={emailData.subject} 
+                  onChange={e => setEmailData(prev => ({...prev, subject: e.target.value}))} 
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Binding Message</Label>
-              <Textarea rows={4} value={emailData.body} onChange={e => setEmailData(prev => ({...prev, body: e.target.value}))} />
-            </div>
-            <div className="p-3 bg-slate-50 text-slate-800 rounded text-sm break-all font-mono border border-indigo-100">
-              Attached Digital Token: {window.location.origin}/public/contract/{existingContract?.secure_token}
+            
+            <div className="px-6 py-6 space-y-4">
+              <Textarea 
+                rows={8}
+                value={emailData.body} 
+                onChange={e => setEmailData(prev => ({...prev, body: e.target.value}))} 
+                className="min-h-[200px] border-none focus-visible:ring-0 resize-none p-0 text-slate-700 leading-relaxed"
+                placeholder="Enter formal covering message..." 
+              />
+              
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-start gap-4 text-white">
+                 <div className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center shrink-0 border border-slate-700">
+                    <FileSignature className="w-5 h-5 text-indigo-400" />
+                 </div>
+                 <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">Contract_{existingContract?.contract_number || 'Draft'}.pdf</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Digital Signature Portal Token Attached</p>
+                 </div>
+                 <Badge variant="outline" className="border-slate-700 text-slate-300">SECURE</Badge>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)}>Abort</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => emailMutation.mutate()} disabled={emailMutation.isPending || !emailData.to_email}>
-              {emailMutation.isPending ? 'Connecting...' : 'Dispatch'}
+
+          <DialogFooter className="bg-slate-50 px-6 py-4 border-t gap-3">
+            <Button variant="ghost" onClick={() => setIsEmailDialogOpen(false)} className="text-slate-500">
+              Cancel
+            </Button>
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8" 
+              onClick={() => emailMutation.mutate()} 
+              disabled={emailMutation.isPending || !emailData.to_email}
+            >
+              {emailMutation.isPending ? 'Connecting...' : 'Dispatch Contract'}
             </Button>
           </DialogFooter>
         </DialogContent>

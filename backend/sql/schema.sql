@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS properties (
   address           TEXT,
   gstin             VARCHAR(20),
   email_from        VARCHAR(255),
+  document_logo     VARCHAR(64) NOT NULL DEFAULT 'pramod_hotels_resorts' CHECK (document_logo IN ('pramod_hotels_resorts','pramod_lands_end_radisson')),
   smtp_config       JSONB DEFAULT '{}',
   cancellation_policy_default TEXT,
   advance_rule_note TEXT,
@@ -254,9 +255,19 @@ CREATE TABLE IF NOT EXISTS quotations (
                     )),
   financial_summary JSONB DEFAULT '{}',
   policies          JSONB DEFAULT '{}',
-  created_by        INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  valid_until     DATE,
+  secure_token    UUID DEFAULT gen_random_uuid(),
+  total_amount    NUMERIC(14,2) DEFAULT 0,
+  tax_amount      NUMERIC(14,2) DEFAULT 0,
+  discount_amount NUMERIC(14,2) DEFAULT 0,
+  final_amount    NUMERIC(14,2) DEFAULT 0,
+  approved_by     INTEGER REFERENCES users(id),
+  updated_by      INTEGER REFERENCES users(id),
+  viewed_at       TIMESTAMPTZ,
+  view_count      INTEGER DEFAULT 0,
+  created_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (property_id, quotation_number)
 );
 
@@ -281,6 +292,42 @@ CREATE TABLE IF NOT EXISTS contracts (
   btc_letter_url    TEXT,
   signed_ack        TEXT,
   expires_on        DATE,
+  property_id       INTEGER REFERENCES properties(id),
+  secure_token      UUID DEFAULT gen_random_uuid(),
+  status            VARCHAR(24) DEFAULT 'draft',
+  total_value       NUMERIC(14,2) DEFAULT 0,
+  updated_by        INTEGER REFERENCES users(id),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  viewed_at         TIMESTAMPTZ,
+  view_count        INTEGER DEFAULT 0,
+  contract_number   VARCHAR(64),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS contract_versions (
+  id                SERIAL PRIMARY KEY,
+  contract_id      INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  version           INTEGER NOT NULL,
+  snapshot          JSONB NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (contract_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS quotation_interactions (
+  id                SERIAL PRIMARY KEY,
+  quotation_id      INTEGER NOT NULL REFERENCES quotations(id) ON DELETE CASCADE,
+  sender_type       VARCHAR(16) CHECK (sender_type IN ('agent', 'client')),
+  message           TEXT NOT NULL,
+  is_internal       BOOLEAN DEFAULT FALSE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS contract_interactions (
+  id                SERIAL PRIMARY KEY,
+  contract_id      INTEGER NOT NULL REFERENCES contracts(id) ON DELETE CASCADE,
+  sender_type       VARCHAR(16) CHECK (sender_type IN ('agent', 'client')),
+  message           TEXT NOT NULL,
+  is_internal       BOOLEAN DEFAULT FALSE,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

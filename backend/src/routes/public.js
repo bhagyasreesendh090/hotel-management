@@ -369,4 +369,220 @@ router.post(
   }
 );
 
+/* ── PUBLIC QUOTATIONS ──────────────────────────────────────────────────────── */
+
+router.get('/quotations/:token', async (req, res) => {
+  const { token } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(`SELECT * FROM quotations WHERE secure_token = $1`, [token]);
+    if (!rows[0]) return res.status(404).json({ error: 'Quotation not found' });
+    const quote = rows[0];
+    
+    // Auto-mark expired
+    if (quote.valid_until && new Date() > new Date(quote.valid_until) && quote.status !== 'expired' && quote.status !== 'accepted') {
+        await client.query(`UPDATE quotations SET status = 'expired' WHERE id = $1`, [quote.id]);
+        quote.status = 'expired';
+    }
+
+    // View Tracking
+    await client.query(`UPDATE quotations SET viewed_at = NOW(), view_count = view_count + 1 WHERE id = $1`, [quote.id]);
+    if (quote.status === 'sent') {
+      await client.query(`UPDATE quotations SET status = 'viewed' WHERE id = $1`, [quote.id]);
+      quote.status = 'viewed';
+    }
+    
+    const prop = await client.query(`SELECT name, address, email_from, document_logo FROM properties WHERE id = $1`, [quote.property_id]);
+    const vers = await client.query(`SELECT version, snapshot, created_at FROM quotation_versions WHERE quotation_id = $1 ORDER BY version DESC LIMIT 1`, [quote.id]);
+    const interactions = await client.query(`SELECT sender_type, message, created_at FROM quotation_interactions WHERE quotation_id = $1 AND is_internal = FALSE ORDER BY created_at ASC`, [quote.id]);
+    
+    let lead = null;
+    if (quote.lead_id) {
+      const lr = await client.query(`SELECT contact_name, contact_email, contact_phone FROM leads WHERE id = $1`, [quote.lead_id]);
+      lead = lr.rows[0];
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      quotation: quote,
+      property: prop.rows[0],
+      latest_version: vers.rows[0],
+      interactions: interactions.rows,
+      lead: lead
+    });
+  } catch(e) {
+    await client.query('ROLLBACK');
+    res.status(500).json({error: e.message});
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/quotations/:token/interact', async (req, res) => {
+  const { token } = req.params;
+  const { message, action } = req.body;
+  const { rows } = await query(`SELECT id, status, lead_id FROM quotations WHERE secure_token = $1`, [token]);
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+  const quote = rows[0];
+  
+  if (action === 'accept') {
+    await query(`UPDATE quotations SET status = 'accepted', updated_at = NOW() WHERE id = $1`, [quote.id]);
+    if (quote.lead_id) {
+      await query(`UPDATE leads SET pipeline_stage = 'confirmed', updated_at = NOW() WHERE id = $1`, [quote.lead_id]);
+      
+      // Put associated room bookings on HOLD
+      await query(`
+        UPDATE bookings 
+        SET status = 'TENT', updated_at = NOW() 
+        WHERE lead_id = $1 AND status IN ('INQ', 'QTN-HOLD')
+      `, [quote.lead_id]);
+      
+      // Put associated banquet bookings on HOLD
+      await query(`
+        UPDATE banquet_bookings 
+        SET status = 'TENT', updated_at = NOW() 
+        WHERE lead_id = $1 AND status IN ('INQ', 'QTN-HOLD')
+      `, [quote.lead_id]);
+    }
+  } else if (action === 'reject') {
+    await query(`UPDATE quotations SET status = 'rejected', updated_at = NOW() WHERE id = $1`, [quote.id]);
+  }
+  
+  if (message) {
+    await query(
+      `INSERT INTO quotation_interactions (quotation_id, sender_type, message) VALUES ($1, 'client', $2)`,
+      [quote.id, message]
+    );
+  }
+  
+  res.json({ success: true, newStatus: action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : quote.status });
+});
+
+router.post('/quotations/:token/pay-demo', async (req, res) => {
+  const { token } = req.params;
+  const { amount, type } = req.body; // type: 'full' or 'advance'
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(`SELECT id, lead_id, final_amount FROM quotations WHERE secure_token = $1`, [token]);
+    if (!rows[0]) return res.status(404).json({ error: 'Quotation not found' });
+    const quote = rows[0];
+    
+    if (!quote.lead_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No associated lead for this quotation' });
+    }
+    
+    const payAmount = Number(amount);
+    if (isNaN(payAmount) || payAmount <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid payment amount' });
+    }
+    
+    // Process payment for Room Bookings
+    const bookings = await client.query(`SELECT id, advance_received, total_amount FROM bookings WHERE lead_id = $1 AND status = 'TENT'`, [quote.lead_id]);
+    for (const b of bookings.rows) {
+      const newAdvance = Number(b.advance_received ?? 0) + payAmount;
+      const newStatus = 'CONF-P'; // Paid advance
+      
+      await client.query(`UPDATE bookings SET advance_received = $1, status = $2, updated_at = NOW() WHERE id = $3`, [newAdvance, newStatus, b.id]);
+      await client.query(
+        `INSERT INTO payments (booking_id, amount, mode, payment_type, reference, recorded_by) VALUES ($1, $2, 'card', 'advance', 'DEMO_WEB_PAY', NULL)`,
+        [b.id, payAmount]
+      );
+    }
+    
+    // Process payment for Banquet Bookings
+    const banquets = await client.query(`SELECT id FROM banquet_bookings WHERE lead_id = $1 AND status = 'TENT'`, [quote.lead_id]);
+    for (const bb of banquets.rows) {
+      await client.query(`UPDATE banquet_bookings SET status = 'CONF-P', updated_at = NOW() WHERE id = $1`, [bb.id]);
+      await client.query(
+        `INSERT INTO payments (banquet_booking_id, amount, mode, payment_type, reference, recorded_by) VALUES ($1, $2, 'card', 'advance', 'DEMO_WEB_PAY', NULL)`,
+        [bb.id, payAmount]
+      );
+    }
+    
+    // Update quotation status to hide the payment UI
+    await client.query(`UPDATE quotations SET status = 'paid', updated_at = NOW() WHERE id = $1`, [quote.id]);
+    
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Payment processed successfully' });
+  } catch(e) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+/* ── PUBLIC CONTRACTS ───────────────────────────────────────────────────────── */
+
+router.get('/contracts/:token', async (req, res) => {
+  const { token } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(`SELECT * FROM contracts WHERE secure_token = $1`, [token]);
+    if (!rows[0]) return res.status(404).json({ error: 'Contract not found' });
+    const contract = rows[0];
+    
+    if (contract.expires_on && new Date() > new Date(contract.expires_on) && contract.status !== 'expired' && contract.status !== 'accepted') {
+        await client.query(`UPDATE contracts SET status = 'expired' WHERE id = $1`, [contract.id]);
+        contract.status = 'expired';
+    }
+
+    await client.query(`UPDATE contracts SET viewed_at = NOW(), view_count = view_count + 1 WHERE id = $1`, [contract.id]);
+    if (contract.status === 'sent') {
+      await client.query(`UPDATE contracts SET status = 'viewed' WHERE id = $1`, [contract.id]);
+      contract.status = 'viewed';
+    }
+    
+    // Default to property 1 if not linked
+    const propId = contract.property_id || 1; 
+    const prop = await client.query(`SELECT name, address, email_from, document_logo FROM properties WHERE id = $1`, [propId]);
+    const vers = await client.query(`SELECT version, snapshot, created_at FROM contract_versions WHERE contract_id = $1 ORDER BY version DESC LIMIT 1`, [contract.id]);
+    const interactions = await client.query(`SELECT sender_type, message, created_at FROM contract_interactions WHERE contract_id = $1 AND is_internal = FALSE ORDER BY created_at ASC`, [contract.id]);
+    
+    await client.query('COMMIT');
+
+    res.json({
+      contract: contract,
+      property: prop.rows[0],
+      latest_version: vers.rows[0],
+      interactions: interactions.rows
+    });
+  } catch(e) {
+    await client.query('ROLLBACK');
+    res.status(500).json({error: e.message});
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/contracts/:token/interact', async (req, res) => {
+  const { token } = req.params;
+  const { message, action } = req.body;
+  const { rows } = await query(`SELECT id, status, lead_id FROM contracts WHERE secure_token = $1`, [token]);
+  if (!rows[0]) return res.status(404).json({ error: 'Not found' });
+  const contract = rows[0];
+  
+  if (action === 'accept') {
+    await query(`UPDATE contracts SET status = 'accepted', signed_ack = 'Client Electronically Signed', updated_at = NOW() WHERE id = $1`, [contract.id]);
+  } else if (action === 'reject') {
+    await query(`UPDATE contracts SET status = 'rejected', updated_at = NOW() WHERE id = $1`, [contract.id]);
+  }
+  
+  if (message) {
+    await query(
+      `INSERT INTO contract_interactions (contract_id, sender_type, message) VALUES ($1, 'client', $2)`,
+      [contract.id, message]
+    );
+  }
+  
+  res.json({ success: true, newStatus: action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : contract.status });
+});
+
 export default router;

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, Plus, Trash2, Tag, Percent } from 'lucide-react';
+import { ArrowLeft, Save, Send, Plus, Trash2, Tag, Percent, Mail, FileText, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -13,8 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
-import { Mail } from 'lucide-react';
-
 type LineItem = {
   id: string;
   description: string;
@@ -28,6 +26,8 @@ export default function QuoteBuilderPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const leadId = searchParams.get('lead_id');
+  const roomBookingId = searchParams.get('room_booking_id');
+  const banquetBookingId = searchParams.get('banquet_booking_id');
   const { selectedPropertyId } = useProperty();
 
   const [status, setStatus] = useState('draft');
@@ -37,10 +37,21 @@ export default function QuoteBuilderPage() {
   const [items, setItems] = useState<LineItem[]>([
     { id: '1', description: '', unit_price: 0, quantity: 1, tax_rate: 18 }
   ]);
-  const [policies, setPolicies] = useState({ terms: 'Standard hotel terms apply.' });
+  const [policies, setPolicies] = useState({ 
+    terms: 'Standard hotel terms apply.',
+    event_details: {
+      arrival_date: '',
+      departure_date: '',
+      total_rooms: '',
+      extra_beds: '',
+      occupants: '',
+      package_type: 'CP (Bed & Breakfast)'
+    }
+  });
 
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailData, setEmailData] = useState({ to_email: '', cc_email: '', subject: 'Your Quotation from Hotel Pramod', body: '' });
+  const [prefillDone, setPrefillDone] = useState(false);
 
   const isEditing = Boolean(id);
 
@@ -53,6 +64,76 @@ export default function QuoteBuilderPage() {
     },
     enabled: isEditing,
   });
+
+  // ── Fetch linked room booking for pre-fill ────────────────────
+  const { data: roomBooking } = useQuery({
+    queryKey: ['roomBooking_prefill', roomBookingId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/api/crs/bookings/${roomBookingId}`);
+      return res.data.booking ?? res.data;
+    },
+    enabled: !!roomBookingId && !isEditing,
+  });
+
+  // ── Fetch linked banquet booking for pre-fill ─────────────────
+  const { data: banquetBooking } = useQuery({
+    queryKey: ['banquetBooking_prefill', banquetBookingId],
+    queryFn: async () => {
+      const res = await apiClient.get(`/api/banquet/banquet-bookings/${banquetBookingId}`);
+      return res.data.booking ?? res.data;
+    },
+    enabled: !!banquetBookingId && !isEditing,
+  });
+
+  // ── Pre-fill from room booking ─────────────────────────────────
+  useEffect(() => {
+    if (prefillDone || isEditing || !roomBooking) return;
+    const b = roomBooking;
+    const nights = b.check_in && b.check_out
+      ? Math.max(1, Math.round((new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / 86400000))
+      : 1;
+    const rate = Number(b.total_amount ?? 0) / nights || 0;
+    setClientSalutation(`Dear ${b.guest_name ?? 'Valued Guest'}`);
+    setItems([
+      { id: '1', description: `${b.room_types ?? 'Room'} – ${b.meal_plan ?? 'EP'} (${nights} Night${nights > 1 ? 's' : ''})`, unit_price: Math.round(rate), quantity: nights, tax_rate: 12 },
+    ]);
+    setPolicies((p) => ({
+      ...p,
+      event_details: {
+        ...p.event_details,
+        arrival_date: b.check_in ? new Date(b.check_in).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+        departure_date: b.check_out ? new Date(b.check_out).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+        total_rooms: '1',
+        occupants: `${b.total_adults ?? 1} Adult(s), ${b.total_children ?? 0} Child(ren)`,
+        package_type: b.meal_plan ?? 'EP',
+      },
+    }));
+    if (b.guest_email) setEmailData((prev) => ({ ...prev, to_email: b.guest_email }));
+    setPrefillDone(true);
+  }, [roomBooking, isEditing, prefillDone]);
+
+  // ── Pre-fill from banquet booking ──────────────────────────────
+  useEffect(() => {
+    if (prefillDone || isEditing || !banquetBooking) return;
+    const b = banquetBooking;
+    const pax = Number(b.guaranteed_pax ?? 50);
+    const perPlate = Number(b.per_plate_rate ?? 0);
+    setClientSalutation(`Dear Valued Guest`);
+    setItems([
+      { id: '1', description: `${b.venue_name ?? 'Banquet Hall'} – ${b.slot_label ?? 'Full Day'} (${b.event_category ?? 'Event'})`, unit_price: perPlate || Math.round(Number(b.gross_amount ?? 0) / pax), quantity: pax, tax_rate: 18 },
+      { id: '2', description: `Menu Package – ${b.menu_package ?? 'Standard'}`, unit_price: 0, quantity: 1, tax_rate: 0 },
+    ]);
+    setPolicies((p) => ({
+      ...p,
+      event_details: {
+        ...p.event_details,
+        arrival_date: b.event_date ? new Date(b.event_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+        occupants: `${pax} PAX`,
+        package_type: b.menu_package ?? 'Standard',
+      },
+    }));
+    setPrefillDone(true);
+  }, [banquetBooking, isEditing, prefillDone]);
 
   useEffect(() => {
     if (existingQuote) {
@@ -86,7 +167,6 @@ export default function QuoteBuilderPage() {
     mutationFn: async (payload: any) => {
       if (isEditing) {
         const res = await apiClient.post(`/api/crm/quotations/${id}/revise`, { snapshot: payload });
-        // After revise, we also patch the normal status/amounts
         await apiClient.patch(`/api/crm/quotations/${id}`, payload);
         return res.data;
       } else {
@@ -95,8 +175,23 @@ export default function QuoteBuilderPage() {
       }
     },
     onSuccess: (data) => {
-      toast.success(isEditing ? 'Quote updated' : 'Quote created successfully');
-      navigate(leadId ? `/crm/leads/${leadId}` : '/crm/leads');
+      if (isEditing) {
+        toast.success('Quote updated successfully');
+        // stay on edit page so Email Quote button remains accessible
+      } else {
+        const newId = data?.quotation?.id;
+        toast.success('Quote created! You can now email it to the customer.');
+        if (newId) {
+          // Navigate to edit page of the new quote so "Email Quote" button appears
+          const params = new URLSearchParams();
+          if (leadId) params.set('lead_id', leadId);
+          if (roomBookingId) params.set('room_booking_id', roomBookingId);
+          if (banquetBookingId) params.set('banquet_booking_id', banquetBookingId);
+          navigate(`/crm/quotes/${newId}/edit?${params.toString()}`);
+        } else {
+          navigate(leadId ? `/crm/leads/${leadId}` : '/crm/quotations');
+        }
+      }
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.error || 'Failed to save quote');
@@ -132,7 +227,7 @@ export default function QuoteBuilderPage() {
     }
   };
 
-  const handleSave = (requestedStatus = 'draft') => {
+  const handleSave = async (requestedStatus = 'draft') => {
     if (!selectedPropertyId) {
       toast.error('Please select a property from the top bar');
       return;
@@ -140,6 +235,8 @@ export default function QuoteBuilderPage() {
     const payload = {
       property_id: selectedPropertyId,
       lead_id: leadId ? parseInt(leadId) : (existingQuote?.lead_id || null),
+      room_booking_id: roomBookingId ? parseInt(roomBookingId) : undefined,
+      banquet_booking_id: banquetBookingId ? parseInt(banquetBookingId) : undefined,
       client_salutation: clientSalutation,
       validity_days: validityDays,
       status: requestedStatus,
@@ -159,27 +256,28 @@ export default function QuoteBuilderPage() {
 
   return (
     <div className="space-y-6 pb-24 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isEditing ? `Edit Quote ${existingQuote?.quotation_number}` : 'Create New Quote'}</h1>
-            <p className="text-gray-500 mt-1">Configure line items, apply discounts, and generate shareable links.</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">
+              {isEditing ? `Edit Quote ${existingQuote?.quotation_number}` : 'Create New Quote'}
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Configure line items and generate shareable links.</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {isEditing && existingQuote?.secure_token && (
             <>
-              <Button variant="outline" className="border-indigo-200 text-indigo-700 bg-indigo-50" onClick={() => window.open(`/public/quote/${existingQuote.secure_token}`, '_blank')}>
+              <Button variant="outline" size="sm" className="border-indigo-200 text-indigo-700 bg-indigo-50" onClick={() => window.open(`/public/quote/${existingQuote.secure_token}`, '_blank')}>
                 View Live Link
               </Button>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => {
-                // Try grabbing lead email if it exists (which we don't fetch directly here but user can type it in)
-                setIsEmailDialogOpen(true);
-              }}>
-                <Mail className="w-4 h-4 mr-2" /> Email Quote
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsEmailDialogOpen(true)}>
+                <Mail className="w-4 h-4 mr-1 sm:mr-2" /> 
+                <span className="hidden xs:inline">Email Quote</span>
+                <span className="xs:hidden">Email</span>
               </Button>
             </>
           )}
@@ -237,10 +335,48 @@ export default function QuoteBuilderPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Terms & Details</CardTitle>
+              <CardTitle>Event & Accommodation Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Arrival Date & Time</Label>
+                  <Input 
+                    placeholder="e.g. 25th Jan 2027 @14:00 hrs" 
+                    value={policies.event_details?.arrival_date || ''} 
+                    onChange={(e) => setPolicies({ ...policies, event_details: { ...policies.event_details, arrival_date: e.target.value } })} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Departure Date & Time</Label>
+                  <Input 
+                    placeholder="e.g. 27th Jan 2027 @11:00 hrs" 
+                    value={policies.event_details?.departure_date || ''} 
+                    onChange={(e) => setPolicies({ ...policies, event_details: { ...policies.event_details, departure_date: e.target.value } })} 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                 <div className="space-y-2">
+                   <Label>Total Rooms</Label>
+                   <Input value={policies.event_details?.total_rooms || ''} onChange={(e) => setPolicies({ ...policies, event_details: { ...policies.event_details, total_rooms: e.target.value } })} />
+                 </div>
+                 <div className="space-y-2">
+                   <Label>Extra Beds</Label>
+                   <Input value={policies.event_details?.extra_beds || ''} onChange={(e) => setPolicies({ ...policies, event_details: { ...policies.event_details, extra_beds: e.target.value } })} />
+                 </div>
+                 <div className="space-y-2">
+                   <Label>Total Occupants</Label>
+                   <Input value={policies.event_details?.occupants || ''} onChange={(e) => setPolicies({ ...policies, event_details: { ...policies.event_details, occupants: e.target.value } })} />
+                 </div>
+                 <div className="space-y-2">
+                   <Label>Package Type</Label>
+                   <Input value={policies.event_details?.package_type || ''} onChange={(e) => setPolicies({ ...policies, event_details: { ...policies.event_details, package_type: e.target.value } })} />
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                 <div className="space-y-2">
                   <Label>Client Salutation</Label>
                   <Input value={clientSalutation} onChange={(e) => setClientSalutation(e.target.value)} placeholder="Dear Mr. Smith," />
@@ -251,8 +387,8 @@ export default function QuoteBuilderPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Policy / Notes</Label>
-                <Textarea rows={4} value={policies.terms} onChange={(e) => setPolicies({ ...policies, terms: e.target.value })} />
+                <Label>Policy / Notes / Terms & Conditions</Label>
+                <Textarea rows={6} value={policies.terms} onChange={(e) => setPolicies({ ...policies, terms: e.target.value })} />
               </div>
             </CardContent>
           </Card>
@@ -317,57 +453,87 @@ export default function QuoteBuilderPage() {
       </div>
 
       <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Quotation to Client</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Client Email (To)</Label>
-                <Input 
-                  value={emailData.to_email} 
-                  onChange={e => setEmailData(prev => ({...prev, to_email: e.target.value}))} 
-                  placeholder="customer@example.com" 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>CC Email (Optional)</Label>
-                <Input 
-                  value={emailData.cc_email} 
-                  onChange={e => setEmailData(prev => ({...prev, cc_email: e.target.value}))} 
-                  placeholder="manager@example.com" 
-                />
-              </div>
+        <DialogContent className="max-w-2xl p-0 border-none shadow-2xl flex flex-col max-h-[90vh]">
+          {/* Header */}
+          <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white shrink-0">
+            <div className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-indigo-400" />
+              <h2 className="font-semibold text-lg">Compose Message</h2>
             </div>
-            <div className="space-y-2">
-              <Label>Subject Line</Label>
-              <Input 
-                value={emailData.subject} 
-                onChange={e => setEmailData(prev => ({...prev, subject: e.target.value}))} 
+            <Badge variant="outline" className="text-xs border-slate-700 text-slate-400">DRAFT</Badge>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="bg-white divide-y divide-slate-100 overflow-y-auto flex-1">
+            <div className="flex items-center px-6 py-3 gap-4">
+              <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">To:</Label>
+              <Input
+                type="email"
+                className="flex-1 border-0 shadow-none focus-visible:ring-0 text-sm px-0 h-8"
+                value={emailData.to_email}
+                onChange={e => setEmailData(prev => ({...prev, to_email: e.target.value}))}
+                placeholder="recipient@example.com"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Email Body Message (URL auto-appended)</Label>
-              <Textarea 
-                rows={4}
-                value={emailData.body} 
-                onChange={e => setEmailData(prev => ({...prev, body: e.target.value}))} 
-                placeholder="Hi there, please find your quotation attached to this link..." 
+            <div className="flex items-center px-6 py-3 gap-4">
+              <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">Cc:</Label>
+              <Input
+                type="email"
+                className="flex-1 border-0 shadow-none focus-visible:ring-0 text-sm px-0 h-8"
+                value={emailData.cc_email}
+                onChange={e => setEmailData(prev => ({...prev, cc_email: e.target.value}))}
+                placeholder="manager@example.com"
               />
             </div>
-            <div className="p-3 bg-indigo-50 text-indigo-800 rounded text-sm break-all font-mono">
-              Attached Link: {window.location.origin}/public/quote/{existingQuote?.secure_token}
+            <div className="flex items-center px-6 py-3 gap-4 bg-slate-50/50">
+              <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">Subject:</Label>
+              <Input
+                className="flex-1 border-0 shadow-none focus-visible:ring-0 text-sm font-semibold px-0 h-8"
+                value={emailData.subject}
+                onChange={e => setEmailData(prev => ({...prev, subject: e.target.value}))}
+              />
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <Textarea
+                rows={6}
+                value={emailData.body}
+                onChange={e => setEmailData(prev => ({...prev, body: e.target.value}))}
+                className="border-none focus-visible:ring-0 resize-none p-0 text-slate-700 leading-relaxed w-full"
+                placeholder="Write your message here..."
+              />
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-start gap-4">
+                <div className="w-10 h-10 bg-white rounded-lg border border-indigo-100 flex items-center justify-center shrink-0 shadow-sm">
+                  <FileText className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">Quotation_{existingQuote?.quotation_number || 'Draft'}.pdf</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Secure Customer Portal Link Attached</p>
+                </div>
+                <Badge className="bg-indigo-600 text-white border-none">PORTAL ACCESS</Badge>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)}>Cancel</Button>
-            <Button onClick={() => emailMutation.mutate()} disabled={emailMutation.isPending || !emailData.to_email}>
-              {emailMutation.isPending ? 'Sending...' : 'Dispatch Email'}
+
+          {/* Footer — always visible */}
+          <div className="bg-slate-50 px-6 py-4 border-t flex justify-end gap-3 shrink-0">
+            <Button variant="ghost" onClick={() => setIsEmailDialogOpen(false)} className="text-slate-500 hover:text-slate-700">
+              Discard
             </Button>
-          </DialogFooter>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 px-8 gap-2"
+              onClick={() => emailMutation.mutate()}
+              disabled={emailMutation.isPending || !emailData.to_email}
+            >
+              {emailMutation.isPending ? (
+                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Sending...</>
+              ) : (
+                <><Send className="w-4 h-4" /> Send Quotation</>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

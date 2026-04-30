@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { differenceInCalendarDays, format } from 'date-fns';
-import { CheckCircle, Eye, Plus, XCircle } from 'lucide-react';
+import { CheckCircle, Edit2, Eye, Plus, Send, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { useProperty } from '../../context/PropertyContext';
 import apiClient from '../../api/client';
 import { Badge } from '../../components/ui/badge';
@@ -12,6 +13,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 
 type BookingRow = Record<string, unknown> & {
@@ -49,11 +51,15 @@ type RoomTypeOption = {
 const BookingsPage: React.FC = () => {
   const { selectedPropertyId } = useProperty();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<BookingRow | null>(null);
   const [isCheckInDialogOpen, setIsCheckInDialogOpen] = useState(false);
   const [isCheckOutDialogOpen, setIsCheckOutDialogOpen] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [statusToUpdate, setStatusToUpdate] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [newBooking, setNewBooking] = useState({
     guest_name: '',
     guest_email: '',
@@ -73,6 +79,17 @@ const BookingsPage: React.FC = () => {
         params: { property_id: selectedPropertyId },
       });
       return response.data.bookings ?? [];
+    },
+    enabled: !!selectedPropertyId,
+  });
+
+  const { data: allRooms = [] } = useQuery({
+    queryKey: ['rooms', selectedPropertyId],
+    queryFn: async () => {
+      const response = await apiClient.get<{ rooms: any[] }>('/api/crs/rooms', {
+        params: { property_id: selectedPropertyId },
+      });
+      return response.data.rooms ?? [];
     },
     enabled: !!selectedPropertyId,
   });
@@ -189,6 +206,25 @@ const BookingsPage: React.FC = () => {
     },
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const response = await apiClient.patch(`/api/crs/bookings/${id}/status`, { status });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast.success('Booking status updated');
+      setIsStatusDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Failed to update status');
+    },
+  });
+
+  const sendQuoteMutation = useMutation({
+    mutationFn: async (_: any) => {},
+  });
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     createMutation.mutate(newBooking);
@@ -202,18 +238,20 @@ const BookingsPage: React.FC = () => {
     switch (status) {
       case 'CONF-P':
       case 'CONF-U':
-        return 'bg-green-100 text-green-800';
+      case 'SOLD':
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'CI':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'CO':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-slate-100 text-slate-800 border-slate-200';
       case 'CXL':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-200';
       case 'INQ':
       case 'QTN-HOLD':
-        return 'bg-yellow-100 text-yellow-800';
+      case 'TENT':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
       default:
-        return 'bg-slate-100 text-slate-800';
+        return 'bg-slate-100 text-slate-800 border-slate-200';
     }
   };
 
@@ -240,10 +278,28 @@ const BookingsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Bookings</h1>
           <p className="mt-1 text-gray-500">Manage room reservations</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Booking
-        </Button>
+        <div className="flex gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="INQ">Inquiry</SelectItem>
+              <SelectItem value="QTN-HOLD">Hold</SelectItem>
+              <SelectItem value="TENT">Tentative</SelectItem>
+              <SelectItem value="CONF-U">Confirmed (Unpaid)</SelectItem>
+              <SelectItem value="CONF-P">Confirmed (Paid)</SelectItem>
+              <SelectItem value="CI">Checked In</SelectItem>
+              <SelectItem value="CO">Checked Out</SelectItem>
+              <SelectItem value="CXL">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Booking
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -264,7 +320,9 @@ const BookingsPage: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bookings.map((booking) => (
+              {bookings
+                .filter((b) => statusFilter === 'ALL' || b.status === statusFilter)
+                .map((booking) => (
                 <TableRow key={booking.id}>
                   <TableCell className="font-medium">{String(booking.ds_number ?? `Booking #${booking.id}`)}</TableCell>
                   <TableCell>
@@ -302,6 +360,32 @@ const BookingsPage: React.FC = () => {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            params.set('room_booking_id', String(booking.id));
+                            if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
+                            navigate(`/crm/quotes/new?${params.toString()}`);
+                          }}
+                          title="Send Quotation"
+                          disabled={['QTN-HOLD','CONF-U','CONF-P','CI','CO','CXL'].includes(booking.status)}
+                        >
+                          <Send className="h-4 w-4 text-indigo-600" />
+                        </Button>
+                        <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedBooking(booking);
+                          setStatusToUpdate(booking.status);
+                          setIsStatusDialogOpen(true);
+                        }}
+                        title="Update Status"
+                      >
+                        <Edit2 className="h-4 w-4 text-slate-600" />
+                      </Button>
                       {['TENT', 'CONF-U', 'CONF-P'].includes(booking.status) && (
                         <Button
                           variant="ghost"
@@ -310,6 +394,7 @@ const BookingsPage: React.FC = () => {
                             setSelectedBooking(booking);
                             setIsCheckInDialogOpen(true);
                           }}
+                          title="Check In"
                         >
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         </Button>
@@ -322,6 +407,7 @@ const BookingsPage: React.FC = () => {
                             setSelectedBooking(booking);
                             setIsCheckOutDialogOpen(true);
                           }}
+                          title="Check Out"
                         >
                           <XCircle className="h-4 w-4 text-blue-600" />
                         </Button>
@@ -336,14 +422,14 @@ const BookingsPage: React.FC = () => {
       </Card>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {selectedBooking ? String(selectedBooking.ds_number ?? `Booking #${selectedBooking.id}`) : 'Booking details'}
             </DialogTitle>
           </DialogHeader>
           {selectedBooking ? (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <div className="rounded-xl border border-gray-200 p-4">
                 <p className="text-sm text-gray-500">Guest</p>
                 <p className="mt-1 font-semibold text-gray-900">{String(selectedBooking.guest_name ?? '—')}</p>
@@ -379,12 +465,12 @@ const BookingsPage: React.FC = () => {
       </Dialog>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create New Booking</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="guest_name">Guest Name</Label>
                 <Input
@@ -489,7 +575,7 @@ const BookingsPage: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
@@ -518,10 +604,31 @@ const BookingsPage: React.FC = () => {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="room_id">Room Number</Label>
-              <Input id="room_id" name="room_id" required placeholder="Enter room ID" />
+              <Label htmlFor="room_id">Select Room</Label>
+              <Select name="room_id" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select available room" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allRooms
+                    .filter((r) => {
+                      // Filter rooms that match the booked room type
+                      const line = selectedBooking?.room_types; // Note: row.room_types is a string aggregation in this view
+                      // We should ideally have the room_type_id in the booking row, but let's try to match by category
+                      return r.room_type_category === selectedBooking?.room_types && r.status === 'available';
+                    })
+                    .map((room) => (
+                      <SelectItem key={room.id} value={room.id.toString()}>
+                        Room {room.room_number} ({room.room_type_category})
+                      </SelectItem>
+                    ))}
+                  {allRooms.filter(r => r.room_type_category === selectedBooking?.room_types && r.status === 'available').length === 0 && (
+                    <SelectItem value="none" disabled>No available rooms found</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setIsCheckInDialogOpen(false)}>
                 Cancel
               </Button>
@@ -533,14 +640,55 @@ const BookingsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Booking Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={statusToUpdate} onValueChange={setStatusToUpdate}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select new status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="INQ">Inquiry</SelectItem>
+                  <SelectItem value="QTN-HOLD">Hold</SelectItem>
+                  <SelectItem value="TENT">Tentative</SelectItem>
+                  <SelectItem value="CONF-U">Confirmed (Unpaid)</SelectItem>
+                  <SelectItem value="CONF-P">Confirmed (Paid)</SelectItem>
+                  <SelectItem value="CXL">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedBooking) {
+                    updateStatusMutation.mutate({ id: selectedBooking.id, status: statusToUpdate });
+                  }
+                }}
+                disabled={updateStatusMutation.isPending}
+              >
+                {updateStatusMutation.isPending ? 'Updating...' : 'Update Status'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isCheckOutDialogOpen} onOpenChange={setIsCheckOutDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Check Out Guest</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p>Are you sure you want to check out this guest?</p>
-            <div className="flex justify-end gap-2">
+            <p className="text-sm text-slate-600">Are you sure you want to check out this guest?</p>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" onClick={() => setIsCheckOutDialogOpen(false)}>
                 Cancel
               </Button>

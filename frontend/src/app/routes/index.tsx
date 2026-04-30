@@ -22,6 +22,8 @@ import PublicQuoteView from '../pages/crm/PublicQuoteView';
 import ContractsPage from '../pages/crm/ContractsPage';
 import ContractBuilderPage from '../pages/crm/ContractBuilderPage';
 import PublicContractView from '../pages/crm/PublicContractView';
+import StatusTrackerPage from '../pages/crm/StatusTrackerPage';
+import InterestTrackerPage from '../pages/crm/InterestTrackerPage';
 // Banquet Pages
 import VenuesPage from '../pages/banquet/VenuesPage';
 import BanquetBookingsPage from '../pages/banquet/BanquetBookingsPage';
@@ -130,6 +132,14 @@ export const router = createBrowserRouter([
       {
         path: 'crm/contracts/:id/edit',
         element: <ContractBuilderPage />,
+      },
+      {
+        path: 'crm/tracker',
+        element: <StatusTrackerPage />,
+      },
+      {
+        path: 'crm/interest',
+        element: <InterestTrackerPage />,
       },
       // Banquet Routes
       {
