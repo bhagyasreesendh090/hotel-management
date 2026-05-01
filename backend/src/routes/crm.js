@@ -233,8 +233,8 @@ router.post(
       const validUntil = new Date(Date.now() + validity * 24 * 60 * 60 * 1000);
 
       const ins = await client.query(
-        `INSERT INTO quotations (lead_id, property_id, quotation_number, client_salutation, validity_days, valid_until, status, financial_summary, policies, created_by, total_amount, tax_amount, discount_amount, final_amount)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, secure_token`,
+        `INSERT INTO quotations (lead_id, property_id, quotation_number, client_salutation, validity_days, valid_until, status, financial_summary, policies, created_by, total_amount, tax_amount, discount_amount, final_amount, booking_id, banquet_booking_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id, secure_token`,
         [
           req.body.lead_id ?? null,
           propertyId,
@@ -249,7 +249,9 @@ router.post(
           total_amount ?? 0,
           tax_amount ?? 0,
           discount_amount ?? 0,
-          final_amount
+          final_amount,
+          req.body.room_booking_id ?? null,
+          req.body.banquet_booking_id ?? null
         ]
       );
       const qid = ins.rows[0].id;
@@ -329,22 +331,59 @@ router.patch(
   param('id').isInt(),
   async (req, res) => {
     const id = Number(req.params.id);
-    const { status } = req.body;
+    const { 
+      status, 
+      financial_summary, 
+      policies, 
+      total_amount, 
+      tax_amount, 
+      discount_amount, 
+      final_amount,
+      client_salutation,
+      validity_days
+    } = req.body;
     
     // Auto lead stage mapping based on quote action
     const quote = await query('SELECT lead_id FROM quotations WHERE id = $1', [id]);
     const leadId = quote.rows[0]?.lead_id;
 
+    const sets = [];
+    const vals = [];
+    let idx = 1;
+
+    const addField = (name, val) => {
+      if (val !== undefined) {
+        sets.push(`${name} = $${idx++}`);
+        vals.push(typeof val === 'object' ? JSON.stringify(val) : val);
+      }
+    };
+
+    addField('status', status);
+    addField('financial_summary', financial_summary);
+    addField('policies', policies);
+    addField('total_amount', total_amount);
+    addField('tax_amount', tax_amount);
+    addField('discount_amount', discount_amount);
+    addField('final_amount', final_amount);
+    addField('client_salutation', client_salutation);
+    addField('validity_days', validity_days);
+    
     if (status === 'approved' || status === 'rejected') {
       if (!['super_admin', 'gm', 'sales_manager'].includes(req.user.role)) {
         return res.status(403).json({ error: 'Only managers can approve discounts' });
       }
-      await query(`UPDATE quotations SET status = $2, approved_by = $3, updated_at = NOW() WHERE id = $1`, [id, status, req.user.id]);
+      addField('approved_by', req.user.id);
     } else {
-      await query(`UPDATE quotations SET status = $2, updated_by = $3, updated_at = NOW() WHERE id = $1`, [id, status, req.user.id]);
+      addField('updated_by', req.user.id);
     }
 
-    if (leadId) {
+    if (sets.length > 0) {
+      sets.push(`updated_at = NOW()`);
+      vals.push(id);
+      await query(`UPDATE quotations SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
+    }
+
+    if (leadId && status) {
       if (status === 'sent') {
         await query(`UPDATE leads SET pipeline_stage = 'quotation_sent', updated_at = NOW() WHERE id = $1`, [leadId]);
       } else if (status === 'accepted') {
@@ -451,21 +490,24 @@ router.post(
     try {
       await client.query('BEGIN');
       const { 
-        booking_id, lead_id, corporate_account_id, property_id, 
-        flow, terms, payment_deadline, expires_on, total_value, status 
+        booking_id, banquet_booking_id, lead_id, corporate_account_id, property_id, 
+        flow, terms, policies, payment_deadline, expires_on, total_value, status 
       } = req.body;
+
       
       const ins = await client.query(
         `INSERT INTO contracts (
-          booking_id, lead_id, corporate_account_id, property_id, 
-          terms, flow, payment_deadline, expires_on, total_value, status, updated_by, updated_at
-        ) VALUES ($1,$2,$3,$4,$5,COALESCE($6,'hotel_proposes'),$7,$8,$9,$10,$11,NOW()) RETURNING id, secure_token`,
+          booking_id, banquet_booking_id, lead_id, corporate_account_id, property_id, 
+          terms, policies, flow, payment_deadline, expires_on, total_value, status, updated_by, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'hotel_proposes'),$9,$10,$11,$12,$13,NOW()) RETURNING id, secure_token`,
         [
           booking_id || null,
+          banquet_booking_id || null,
           lead_id || null,
           corporate_account_id || null,
           property_id,
           terms || '',
+          JSON.stringify(policies || {}),
           flow,
           payment_deadline || null,
           expires_on || null,
@@ -473,6 +515,7 @@ router.post(
           status || 'draft',
           req.user.id
         ]
+
       );
       const cid = ins.rows[0].id;
       const fy = indianFinancialYearLabel();
@@ -510,7 +553,8 @@ router.patch(
     const id = Number(req.params.id);
     const sets = [];
     const vals = [];
-    const fields = ['terms', 'status', 'flow', 'payment_deadline', 'expires_on', 'total_value'];
+    const fields = ['terms', 'policies', 'status', 'flow', 'payment_deadline', 'expires_on', 'total_value'];
+
     
     fields.forEach(f => {
       if (req.body[f] !== undefined) {

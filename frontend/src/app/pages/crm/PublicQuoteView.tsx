@@ -266,13 +266,47 @@ export default function PublicQuoteView() {
               </div>
            </div>
 
-           {/* Terms Section */}
-           <div className="border-t-2 border-slate-100 pt-8 mb-16">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Terms & Conditions</h4>
-              <div className="text-[9px] text-slate-600 grid grid-cols-2 gap-x-12 gap-y-4 whitespace-pre-wrap leading-tight">
-                 {policies.terms || `1. A valid address proof with photo is mandatory to be produced by all the respective guests at front desk to proceed with the check-in.\n2. Our check-in time is 14:00 Hrs, and check-out time is 11:00 Hrs.\n3. Early check-in after 10:00 am and late check-out before 12:00 pm can be subject to the availability of rooms and free of any additional charges.\n4. Payments should be shared 15 days prior to the event date.\n5. Alcohol policy strictly follows local government regulations.`}
+           {/* Policies Section */}
+           <div className="border-t-2 border-slate-900 pt-8 mb-10">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-700 mb-4">Terms, Conditions & Hotel Policies</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-[9px] leading-relaxed">
+                {(() => {
+                  // Support both new dynamic policy_list and old flat field format
+                  const COLOR_BORDER: Record<string, string> = {
+                    red: 'border-red-400', amber: 'border-amber-400', green: 'border-green-500',
+                    blue: 'border-blue-400', indigo: 'border-indigo-400', slate: 'border-slate-400',
+                  };
+                  const COLOR_TEXT: Record<string, string> = {
+                    red: 'text-red-700', amber: 'text-amber-700', green: 'text-green-700',
+                    blue: 'text-blue-700', indigo: 'text-indigo-700', slate: 'text-slate-700',
+                  };
+
+                  // Build a unified list from whatever format is stored
+                  const list: Array<{ id: string; title: string; content: string; color: string }> =
+                    policies.policy_list?.length > 0
+                      ? policies.policy_list
+                      : [
+                          policies.cancellation_policy && { id: 'p1', title: 'Cancellation Policy', color: 'red', content: policies.cancellation_policy },
+                          policies.liquor_policy       && { id: 'p2', title: 'Liquor & Alcohol Policy', color: 'amber', content: policies.liquor_policy },
+                          policies.payment_terms       && { id: 'p3', title: 'Payment Terms', color: 'green', content: policies.payment_terms },
+                          policies.check_in_out_policy && { id: 'p4', title: 'Check-in / Check-out', color: 'blue', content: policies.check_in_out_policy },
+                          policies.general_notes       && { id: 'p5', title: 'General Notes', color: 'slate', content: policies.general_notes },
+                          policies.terms               && { id: 'p6', title: 'General Terms', color: 'slate', content: policies.terms },
+                        ].filter(Boolean) as typeof list;
+
+                  if (list.length === 0) {
+                    return <p className="text-slate-400 italic col-span-2">No policies were specified for this quotation.</p>;
+                  }
+                  return list.map((p) => (
+                    <div key={p.id} className={`space-y-1 border-l-2 pl-3 ${COLOR_BORDER[p.color] ?? 'border-slate-400'}`}>
+                      <p className={`font-bold text-[10px] uppercase ${COLOR_TEXT[p.color] ?? 'text-slate-700'}`}>{p.title}</p>
+                      <p className="text-slate-600 whitespace-pre-wrap">{p.content}</p>
+                    </div>
+                  ));
+                })()}
               </div>
            </div>
+
 
            {/* Signature Footer */}
            <div className="flex justify-between items-end mt-20 pt-10 border-t border-slate-100 text-[10px]">

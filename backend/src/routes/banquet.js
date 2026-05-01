@@ -410,10 +410,11 @@ router.get(
       [propertyId]
     );
     const bookings = await query(
-      `SELECT bb.*, v.name AS venue_name, vts.label AS slot_label, vts.session_kind
+      `SELECT bb.*, v.name AS venue_name, vts.label AS slot_label, vts.session_kind, rb.guest_name AS linked_guest_name
        FROM banquet_bookings bb
        JOIN venues v ON v.id = bb.venue_id
        LEFT JOIN venue_time_slots vts ON vts.id = bb.venue_slot_id
+       LEFT JOIN bookings rb ON rb.id = bb.linked_booking_id
        WHERE bb.property_id = $1 AND bb.event_date = $2 AND bb.status NOT IN ('CXL')`,
       [propertyId, eventDate]
     );
@@ -454,6 +455,7 @@ router.get(
           event_sub_type: booking?.event_sub_type ?? null,
           menu_package: booking?.menu_package ?? null,
           with_room: booking?.with_room ?? false,
+          linked_guest_name: booking?.linked_guest_name ?? null,
         };
       });
 
@@ -607,10 +609,11 @@ router.get('/banquet-bookings', qv('property_id').optional().isInt(), async (req
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   let sql = `
-    SELECT bb.*, v.name AS venue_name, vts.label AS slot_label, vts.session_kind
+    SELECT bb.*, v.name AS venue_name, vts.label AS slot_label, vts.session_kind, rb.guest_name AS linked_guest_name
     FROM banquet_bookings bb
     JOIN venues v ON v.id = bb.venue_id
     LEFT JOIN venue_time_slots vts ON vts.id = bb.venue_slot_id
+    LEFT JOIN bookings rb ON rb.id = bb.linked_booking_id
     WHERE 1 = 1`;
   const params = [];
   if (req.query.property_id) {

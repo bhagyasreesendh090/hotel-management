@@ -1,7 +1,9 @@
 import pg from 'pg';
 const { Pool } = pg;
 
-const pool = new Pool({ connectionString: 'postgresql://postgres:admin@localhost:5432/pramod-hotel' });
+import dotenv from 'dotenv';
+dotenv.config();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function run() {
   const client = await pool.connect();

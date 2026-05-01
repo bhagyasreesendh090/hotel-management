@@ -70,6 +70,9 @@ const BookingsPage: React.FC = () => {
     check_out_date: '',
     num_adults: '1',
     num_children: '0',
+    booker_type: 'individual',
+    corporate_account_id: '',
+    travel_agent_id: '',
   });
 
   const { data: bookings = [], isLoading } = useQuery({
@@ -123,6 +126,22 @@ const BookingsPage: React.FC = () => {
     enabled: !!selectedPropertyId,
   });
 
+  const { data: corporateAccounts = [] } = useQuery({
+    queryKey: ['corporateAccounts'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/corporate/corporate-accounts');
+      return response.data.accounts ?? [];
+    },
+  });
+
+  const { data: travelAgents = [] } = useQuery({
+    queryKey: ['travelAgents'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/corporate/travel-agents');
+      return response.data.agents ?? [];
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof newBooking) => {
       if (!selectedPropertyId) throw new Error('Select a property');
@@ -130,11 +149,14 @@ const BookingsPage: React.FC = () => {
       if (!roomType) throw new Error('Select a room type');
       const response = await apiClient.post('/api/crs/bookings', {
         property_id: selectedPropertyId,
+        status: 'CONF-U',
         guest_name: data.guest_name,
         guest_email: data.guest_email,
         guest_phone: data.guest_phone,
-        booker_same_as_guest: true,
-        booker_type: 'individual',
+        booker_same_as_guest: data.booker_type === 'individual',
+        booker_type: data.booker_type,
+        corporate_account_id: data.booker_type === 'corporate' ? data.corporate_account_id : undefined,
+        travel_agent_id: data.booker_type === 'travel_agent' ? data.travel_agent_id : undefined,
         lines: [
           {
             room_type_id: parseInt(data.room_type_id, 10),
@@ -163,6 +185,9 @@ const BookingsPage: React.FC = () => {
         check_out_date: '',
         num_adults: '1',
         num_children: '0',
+        booker_type: 'individual',
+        corporate_account_id: '',
+        travel_agent_id: '',
       });
     },
     onError: () => {
@@ -360,7 +385,7 @@ const BookingsPage: React.FC = () => {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
+                        <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
@@ -370,10 +395,25 @@ const BookingsPage: React.FC = () => {
                             navigate(`/crm/quotes/new?${params.toString()}`);
                           }}
                           title="Send Quotation"
-                          disabled={['QTN-HOLD','CONF-U','CONF-P','CI','CO','CXL'].includes(booking.status)}
+                          disabled={['CONF-U','CONF-P','CI','CO','CXL'].includes(booking.status)}
                         >
                           <Send className="h-4 w-4 text-indigo-600" />
                         </Button>
+                        {['CONF-U', 'CONF-P', 'TENT'].includes(booking.status) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              params.set('room_booking_id', String(booking.id));
+                              if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
+                              navigate(`/crm/quotes/new?${params.toString()}`);
+                            }}
+                            title="Generate Contract"
+                          >
+                            <FileText className="h-4 w-4 text-emerald-600" />
+                          </Button>
+                        )}
                         <Button
                         variant="ghost"
                         size="sm"
@@ -499,6 +539,62 @@ const BookingsPage: React.FC = () => {
                   required
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="booker_type">Booker Type</Label>
+                <Select
+                  value={newBooking.booker_type}
+                  onValueChange={(value) => setNewBooking({ ...newBooking, booker_type: value, corporate_account_id: '', travel_agent_id: '' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select booker type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="corporate">Corporate</SelectItem>
+                    <SelectItem value="travel_agent">Travel Agent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newBooking.booker_type === 'corporate' && (
+                <div className="space-y-2">
+                  <Label htmlFor="corporate_account_id">Corporate Account</Label>
+                  <Select
+                    value={newBooking.corporate_account_id}
+                    onValueChange={(value) => setNewBooking({ ...newBooking, corporate_account_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select corporate account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {corporateAccounts.map((acc: any) => (
+                        <SelectItem key={acc.id} value={acc.id.toString()}>
+                          {acc.company_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {newBooking.booker_type === 'travel_agent' && (
+                <div className="space-y-2">
+                  <Label htmlFor="travel_agent_id">Travel Agent</Label>
+                  <Select
+                    value={newBooking.travel_agent_id}
+                    onValueChange={(value) => setNewBooking({ ...newBooking, travel_agent_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select travel agent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {travelAgents.map((ag: any) => (
+                        <SelectItem key={ag.id} value={ag.id.toString()}>
+                          {ag.agency_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="room_type_id">Room Type</Label>
                 <Select

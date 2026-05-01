@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, Trash2, Link as LinkIcon, Mail, FileSignature } from 'lucide-react';
+import { ArrowLeft, Save, Send, Trash2, Link as LinkIcon, Mail, FileSignature, Edit2, X, Check, Plus } from 'lucide-react';
+
 import { toast } from 'sonner';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -14,7 +15,33 @@ import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 
+interface PolicyEntry {
+  id: string;
+  title: string;
+  content: string;
+  color: 'red' | 'amber' | 'green' | 'blue' | 'indigo' | 'slate';
+}
+
+const COLOR_OPTIONS = [
+  { label: 'Critical (Red)', value: 'red' },
+  { label: 'Warning (Amber)', value: 'amber' },
+  { label: 'Positive (Green)', value: 'green' },
+  { label: 'Info (Blue)', value: 'blue' },
+  { label: 'Primary (Indigo)', value: 'indigo' },
+  { label: 'Neutral (Slate)', value: 'slate' },
+] as const;
+
+const COLOR_MAP: Record<string, string> = {
+  red: 'bg-red-50 text-red-700 border-red-100',
+  amber: 'bg-amber-50 text-amber-700 border-amber-100',
+  green: 'bg-green-50 text-green-700 border-green-100',
+  blue: 'bg-blue-50 text-blue-700 border-blue-100',
+  indigo: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  slate: 'bg-slate-50 text-slate-700 border-slate-100',
+};
+
 export default function ContractBuilderPage() {
+
   const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -30,6 +57,16 @@ export default function ContractBuilderPage() {
   const [paymentDeadline, setPaymentDeadline] = useState('');
   const [expiresOn, setExpiresOn] = useState('');
   const [totalValue, setTotalValue] = useState(0);
+  const [policies, setPolicies] = useState<{ policy_list: PolicyEntry[] }>({ policy_list: [] });
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<PolicyEntry | null>(null);
+  const [isAddingPolicy, setIsAddingPolicy] = useState(false);
+  const [newPolicy, setNewPolicy] = useState<Omit<PolicyEntry, 'id'>>({
+    title: '',
+    content: '',
+    color: 'slate',
+  });
+
 
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailData, setEmailData] = useState({ to_email: '', cc_email: '', subject: 'Formal Contract Details from Hotel Pramod', body: '' });
@@ -58,7 +95,11 @@ export default function ContractBuilderPage() {
       }
       setTotalValue(Number(existingContract.total_value) || 0);
       setStatus(existingContract.status || 'draft');
+      if (existingContract.policies) {
+        setPolicies(existingContract.policies);
+      }
     }
+
   }, [existingContract]);
 
   const saveMutation = useMutation({
@@ -99,6 +140,20 @@ export default function ContractBuilderPage() {
       toast.error('Property selection required');
       return;
     }
+
+    // Validation for "Sent" status
+    if (requestedStatus === 'sent') {
+      if (totalValue <= 0) {
+        toast.error('Please enter a total value for the contract before sending.');
+        return;
+      }
+      if (terms.length < 20 && policies.policy_list.length === 0) {
+        toast.error('Please provide legal terms or add policies before recording as sent.');
+        return;
+      }
+    }
+
+
     const payload = {
       property_id: selectedPropertyId,
       booking_id: bookingId ? parseInt(bookingId) : (existingContract?.booking_id || null),
@@ -106,6 +161,7 @@ export default function ContractBuilderPage() {
       corporate_account_id: corporateId ? parseInt(corporateId) : (existingContract?.corporate_account_id || null),
       flow,
       terms,
+      policies,
       payment_deadline: paymentDeadline || null,
       expires_on: expiresOn || null,
       total_value: totalValue,
@@ -167,7 +223,155 @@ export default function ContractBuilderPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row justify-between items-center bg-slate-50 border-b">
+
+              <CardTitle>Detailed Policies & Clauses</CardTitle>
+              <Button size="sm" onClick={() => setIsAddingPolicy(true)} className="bg-indigo-600 text-white">
+                <Plus className="w-4 h-4 mr-1" /> Add Policy
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {policies.policy_list.map((policy) => (
+                <div key={policy.id} className={`p-4 rounded-xl border-2 transition-all ${COLOR_MAP[policy.color] ?? 'bg-slate-50 text-slate-700 border-slate-100'}`}>
+                  {editingPolicyId === policy.id && editDraft ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          className="flex-1 h-8 text-sm font-semibold"
+                          value={editDraft.title}
+                          onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
+                          placeholder="Policy title"
+                        />
+                        <Select
+                          value={editDraft.color}
+                          onValueChange={(v) => setEditDraft({ ...editDraft, color: v as PolicyEntry['color'] })}
+                        >
+                          <SelectTrigger className="w-44 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COLOR_OPTIONS.map((c) => (
+                              <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Textarea
+                        rows={3}
+                        className="text-sm"
+                        value={editDraft.content}
+                        onChange={(e) => setEditDraft({ ...editDraft, content: e.target.value })}
+                        placeholder="Policy content..."
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-slate-500" onClick={() => { setEditingPolicyId(null); setEditDraft(null); }}>
+                          <X className="w-3 h-3 mr-1" /> Cancel
+                        </Button>
+                        <Button size="sm" className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                          setPolicies((prev) => ({ ...prev, policy_list: prev.policy_list.map((p) => p.id === editDraft.id ? editDraft : p) }));
+                          setEditingPolicyId(null); setEditDraft(null);
+                        }}>
+                          <Check className="w-3 h-3 mr-1" /> Save
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-wide opacity-70">{policy.title}</p>
+                        <p className="mt-1 text-sm whitespace-pre-wrap leading-relaxed">{policy.content}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          size="icon" variant="ghost"
+                          className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                          onClick={() => { setEditingPolicyId(policy.id); setEditDraft({ ...policy }); }}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          size="icon" variant="ghost"
+                          className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            if (window.confirm(`Delete "${policy.title}"?`)) {
+                              setPolicies((prev) => ({ ...prev, policy_list: prev.policy_list.filter((p) => p.id !== policy.id) }));
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {policies.policy_list.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-6 italic border-2 border-dashed border-slate-100 rounded-xl">No specific policies added yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Dialog open={isAddingPolicy} onOpenChange={setIsAddingPolicy}>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>Add New Policy</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Policy Title</Label>
+                  <Input
+                    value={newPolicy.title}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, title: e.target.value })}
+                    placeholder="e.g. Cancellation Policy, Liquor Policy..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Color / Category</Label>
+                  <Select
+                    value={newPolicy.color}
+                    onValueChange={(v) => setNewPolicy({ ...newPolicy, color: v as PolicyEntry['color'] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COLOR_OPTIONS.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Policy Content</Label>
+                  <Textarea
+                    rows={4}
+                    value={newPolicy.content}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, content: e.target.value })}
+                    placeholder="Write the policy text here..."
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button variant="outline" onClick={() => setIsAddingPolicy(false)}>Cancel</Button>
+                  <Button
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() => {
+                      if (!newPolicy.title.trim() || !newPolicy.content.trim()) {
+                        toast.error('Please fill in both title and content.');
+                        return;
+                      }
+                      const entry: PolicyEntry = { ...newPolicy, id: `p${Date.now()}` };
+                      setPolicies((prev) => ({ ...prev, policy_list: [...prev.policy_list, entry] }));
+                      setIsAddingPolicy(false);
+                      setNewPolicy({ title: '', content: '', color: 'slate' });
+                      toast.success(`Policy "${entry.title}" added.`);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add Policy
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
+
 
         <div className="lg:col-span-1 space-y-6">
           <Card className="sticky top-6">

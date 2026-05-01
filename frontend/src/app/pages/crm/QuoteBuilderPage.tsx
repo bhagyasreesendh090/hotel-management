@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Save, Send, Plus, Trash2, Tag, Percent, Mail, FileText, FileSignature } from 'lucide-react';
+import { ArrowLeft, Save, Send, Plus, Trash2, Tag, Mail, FileText, Edit2, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -12,7 +12,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Badge } from '../../components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+
 type LineItem = {
   id: string;
   description: string;
@@ -20,6 +21,40 @@ type LineItem = {
   quantity: number;
   tax_rate: number;
 };
+
+type PolicyEntry = {
+  id: string;
+  title: string;
+  content: string;
+  color: 'red' | 'amber' | 'green' | 'blue' | 'slate' | 'indigo';
+};
+
+const COLOR_OPTIONS = [
+  { value: 'red',    label: '🔴 Red (Cancellation)' },
+  { value: 'amber',  label: '🟡 Amber (Liquor/Alcohol)' },
+  { value: 'green',  label: '🟢 Green (Payment)' },
+  { value: 'blue',   label: '🔵 Blue (Check-in/out)' },
+  { value: 'indigo', label: '🟣 Indigo (Special)' },
+  { value: 'slate',  label: '⚫ Slate (General)' },
+] as const;
+
+const COLOR_MAP: Record<string, string> = {
+  red:    'border-red-400 text-red-700',
+  amber:  'border-amber-400 text-amber-700',
+  green:  'border-green-500 text-green-700',
+  blue:   'border-blue-400 text-blue-700',
+  indigo: 'border-indigo-400 text-indigo-700',
+  slate:  'border-slate-400 text-slate-700',
+};
+
+const DEFAULT_POLICIES: PolicyEntry[] = [
+  { id: 'p1', title: 'Cancellation Policy',   color: 'red',   content: '100% of total amount will be charged for cancellations made within 48 hours of check-in. 50% will be charged for cancellations within 7 days.' },
+  { id: 'p2', title: 'Liquor & Alcohol Policy', color: 'amber', content: 'Liquor is served strictly as per local government regulations and applicable excise laws. Outside liquor is not permitted on hotel premises.' },
+  { id: 'p3', title: 'Payment Terms',          color: 'green', content: 'Minimum 50% advance is required to confirm the booking. Balance to be cleared prior to check-in. All payments via Bank Transfer / UPI / Card.' },
+  { id: 'p4', title: 'Check-in / Check-out',   color: 'blue',  content: 'Check-in time is 14:00 Hrs. Check-out time is 11:00 Hrs. Early check-in / late check-out is subject to availability and may incur additional charges.' },
+  { id: 'p5', title: 'General Notes',          color: 'slate', content: 'A valid photo ID is mandatory for all guests at check-in. The hotel reserves the right to refuse service to anyone violating property policies.' },
+];
+
 
 export default function QuoteBuilderPage() {
   const navigate = useNavigate();
@@ -30,15 +65,21 @@ export default function QuoteBuilderPage() {
   const banquetBookingId = searchParams.get('banquet_booking_id');
   const { selectedPropertyId } = useProperty();
 
+  const initialDocType = (searchParams.get('doc_type') as 'Quotation' | 'Contract') || 
+                         ((roomBookingId || banquetBookingId) ? 'Contract' : 'Quotation');
   const [status, setStatus] = useState('draft');
+  const [docType, setDocType] = useState<'Quotation' | 'Contract'>(initialDocType);
   const [clientSalutation, setClientSalutation] = useState("Dear Sir / Ma'am");
   const [validityDays, setValidityDays] = useState(7);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [items, setItems] = useState<LineItem[]>([
     { id: '1', description: '', unit_price: 0, quantity: 1, tax_rate: 18 }
   ]);
-  const [policies, setPolicies] = useState({ 
-    terms: 'Standard hotel terms apply.',
+
+  const [policies, setPolicies] = useState<{
+    event_details: Record<string, string>;
+    policy_list: PolicyEntry[];
+  }>({
     event_details: {
       arrival_date: '',
       departure_date: '',
@@ -46,8 +87,20 @@ export default function QuoteBuilderPage() {
       extra_beds: '',
       occupants: '',
       package_type: 'CP (Bed & Breakfast)'
-    }
+    },
+    policy_list: DEFAULT_POLICIES
   });
+
+  // Policy CRUD state
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<PolicyEntry | null>(null);
+  const [isAddingPolicy, setIsAddingPolicy] = useState(false);
+  const [newPolicy, setNewPolicy] = useState<Omit<PolicyEntry, 'id'>>({
+    title: '',
+    content: '',
+    color: 'slate'
+  });
+
 
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailData, setEmailData] = useState({ to_email: '', cc_email: '', subject: 'Your Quotation from Hotel Pramod', body: '' });
@@ -109,8 +162,10 @@ export default function QuoteBuilderPage() {
       },
     }));
     if (b.guest_email) setEmailData((prev) => ({ ...prev, to_email: b.guest_email }));
+    setDocType('Contract'); // Default to Contract for existing bookings
     setPrefillDone(true);
   }, [roomBooking, isEditing, prefillDone]);
+
 
   // ── Pre-fill from banquet booking ──────────────────────────────
   useEffect(() => {
@@ -132,8 +187,10 @@ export default function QuoteBuilderPage() {
         package_type: b.menu_package ?? 'Standard',
       },
     }));
+    setDocType('Contract'); // Default to Contract for existing bookings
     setPrefillDone(true);
   }, [banquetBooking, isEditing, prefillDone]);
+
 
   useEffect(() => {
     if (existingQuote) {
@@ -144,11 +201,29 @@ export default function QuoteBuilderPage() {
       if (existingQuote.financial_summary?.items) {
         setItems(existingQuote.financial_summary.items);
       }
+      if (existingQuote.financial_summary?.doc_type) {
+        setDocType(existingQuote.financial_summary.doc_type);
+      }
       if (existingQuote.policies) {
-        setPolicies(existingQuote.policies);
+
+        const p = existingQuote.policies;
+        // Migrate old format to new dynamic format
+        const migratedList: PolicyEntry[] = p.policy_list ?? [
+          p.cancellation_policy && { id: 'p1', title: 'Cancellation Policy', color: 'red', content: p.cancellation_policy },
+          p.liquor_policy      && { id: 'p2', title: 'Liquor & Alcohol Policy', color: 'amber', content: p.liquor_policy },
+          p.payment_terms      && { id: 'p3', title: 'Payment Terms', color: 'green', content: p.payment_terms },
+          p.check_in_out_policy && { id: 'p4', title: 'Check-in / Check-out', color: 'blue', content: p.check_in_out_policy },
+          p.general_notes      && { id: 'p5', title: 'General Notes', color: 'slate', content: p.general_notes },
+          p.terms              && { id: 'p6', title: 'General Terms', color: 'slate', content: p.terms },
+        ].filter(Boolean) as PolicyEntry[];
+        setPolicies({
+          event_details: p.event_details ?? {},
+          policy_list: migratedList.length > 0 ? migratedList : DEFAULT_POLICIES,
+        });
       }
     }
   }, [existingQuote]);
+
 
   const { subTotal, taxTotal, finalTotal } = useMemo(() => {
     let sub = 0;
@@ -244,7 +319,10 @@ export default function QuoteBuilderPage() {
       tax_amount: taxTotal,
       discount_amount: discountAmount,
       final_amount: finalTotal,
-      financial_summary: { items },
+      financial_summary: { 
+        items,
+        doc_type: docType
+      },
       policies
     };
     saveMutation.mutate(payload);
@@ -262,9 +340,20 @@ export default function QuoteBuilderPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">
-              {isEditing ? `Edit Quote ${existingQuote?.quotation_number}` : 'Create New Quote'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">
+                {isEditing ? `Edit ${docType} ${existingQuote?.quotation_number}` : `Create New ${docType}`}
+              </h1>
+              <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
+                <SelectTrigger className="w-32 h-8 border-none bg-indigo-50 text-indigo-700 font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Quotation">Quotation</SelectItem>
+                  <SelectItem value="Contract">Contract</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <p className="text-sm text-gray-500 mt-1">Configure line items and generate shareable links.</p>
           </div>
         </div>
@@ -276,7 +365,7 @@ export default function QuoteBuilderPage() {
               </Button>
               <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setIsEmailDialogOpen(true)}>
                 <Mail className="w-4 h-4 mr-1 sm:mr-2" /> 
-                <span className="hidden xs:inline">Email Quote</span>
+                <span className="hidden xs:inline">Email {docType}</span>
                 <span className="xs:hidden">Email</span>
               </Button>
             </>
@@ -386,12 +475,166 @@ export default function QuoteBuilderPage() {
                   <Input type="number" min="1" value={validityDays} onChange={(e) => setValidityDays(parseInt(e.target.value) || 1)} />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Policy / Notes / Terms & Conditions</Label>
-                <Textarea rows={6} value={policies.terms} onChange={(e) => setPolicies({ ...policies, terms: e.target.value })} />
-              </div>
             </CardContent>
           </Card>
+
+          {/* Dynamic Policies Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-500" /> Hotel Policies
+              </CardTitle>
+              <Button
+                type="button" size="sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={() => { setIsAddingPolicy(true); setNewPolicy({ title: '', content: '', color: 'slate' }); }}
+              >
+                <Plus className="w-4 h-4 mr-1" /> Add Policy
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {policies.policy_list.map((policy) => (
+                <div
+                  key={policy.id}
+                  className={`border-l-4 pl-4 pr-3 py-3 rounded-r-xl bg-slate-50 ${COLOR_MAP[policy.color] ?? COLOR_MAP['slate']}`}
+                >
+                  {editingPolicyId === policy.id && editDraft ? (
+                    /* ── EDIT MODE ── */
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          className="flex-1 h-8 text-sm font-semibold"
+                          value={editDraft.title}
+                          onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
+                          placeholder="Policy title"
+                        />
+                        <Select
+                          value={editDraft.color}
+                          onValueChange={(v) => setEditDraft({ ...editDraft, color: v as PolicyEntry['color'] })}
+                        >
+                          <SelectTrigger className="w-44 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COLOR_OPTIONS.map((c) => (
+                              <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Textarea
+                        rows={3}
+                        className="text-sm"
+                        value={editDraft.content}
+                        onChange={(e) => setEditDraft({ ...editDraft, content: e.target.value })}
+                        placeholder="Policy content..."
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-slate-500" onClick={() => { setEditingPolicyId(null); setEditDraft(null); }}>
+                          <X className="w-3 h-3 mr-1" /> Cancel
+                        </Button>
+                        <Button size="sm" className="h-7 px-3 bg-green-600 hover:bg-green-700 text-white" onClick={() => {
+                          setPolicies((prev) => ({ ...prev, policy_list: prev.policy_list.map((p) => p.id === editDraft.id ? editDraft : p) }));
+                          setEditingPolicyId(null); setEditDraft(null);
+                        }}>
+                          <Check className="w-3 h-3 mr-1" /> Save
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── VIEW MODE ── */
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold uppercase tracking-wide ${COLOR_MAP[policy.color]?.split(' ')[1] ?? 'text-slate-700'}`}>{policy.title}</p>
+                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{policy.content}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          size="icon" variant="ghost"
+                          className="h-7 w-7 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                          onClick={() => { setEditingPolicyId(policy.id); setEditDraft({ ...policy }); }}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          size="icon" variant="ghost"
+                          className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            if (window.confirm(`Delete "${policy.title}"?`)) {
+                              setPolicies((prev) => ({ ...prev, policy_list: prev.policy_list.filter((p) => p.id !== policy.id) }));
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {policies.policy_list.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-6 italic">No policies added yet. Click "Add Policy" to create one.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Add Policy Dialog */}
+          <Dialog open={isAddingPolicy} onOpenChange={setIsAddingPolicy}>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>Add New Policy</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Policy Title</Label>
+                  <Input
+                    value={newPolicy.title}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, title: e.target.value })}
+                    placeholder="e.g. Noise Policy, Pet Policy..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Color / Category</Label>
+                  <Select
+                    value={newPolicy.color}
+                    onValueChange={(v) => setNewPolicy({ ...newPolicy, color: v as PolicyEntry['color'] })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {COLOR_OPTIONS.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Policy Content</Label>
+                  <Textarea
+                    rows={4}
+                    value={newPolicy.content}
+                    onChange={(e) => setNewPolicy({ ...newPolicy, content: e.target.value })}
+                    placeholder="Write the policy text here..."
+                  />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button variant="outline" onClick={() => setIsAddingPolicy(false)}>Cancel</Button>
+                  <Button
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() => {
+                      if (!newPolicy.title.trim() || !newPolicy.content.trim()) {
+                        toast.error('Please fill in both title and content.');
+                        return;
+                      }
+                      const entry: PolicyEntry = { ...newPolicy, id: `p${Date.now()}` };
+                      setPolicies((prev) => ({ ...prev, policy_list: [...prev.policy_list, entry] }));
+                      setIsAddingPolicy(false);
+                      toast.success(`Policy "${entry.title}" added.`);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add Policy
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="lg:col-span-1 space-y-6">

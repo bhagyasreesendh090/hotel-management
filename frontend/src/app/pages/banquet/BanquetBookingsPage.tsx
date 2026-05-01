@@ -77,6 +77,7 @@ type AvailabilityRow = {
     event_sub_type: string | null;
     menu_package: string | null;
     with_room: boolean;
+    linked_guest_name: string | null;
   }[];
 };
 
@@ -239,6 +240,18 @@ export default function BanquetBookingsPage() {
     },
     enabled: !!selectedPropertyId,
   });
+
+  const { data: roomBookings = [] } = useQuery({
+    queryKey: ['roomBookings_simple', selectedPropertyId],
+    queryFn: async () => {
+      const response = await apiClient.get<{ bookings: any[] }>('/api/crs/bookings', {
+        params: { property_id: selectedPropertyId },
+      });
+      return response.data.bookings ?? [];
+    },
+    enabled: !!selectedPropertyId,
+  });
+
 
   const availableSlotsForVenue = useMemo(
     () => slots.filter((slot) => String(slot.venue_id) === form.venue_id),
@@ -563,7 +576,9 @@ export default function BanquetBookingsPage() {
                           {/* Event info or CTA */}
                           <span className="rounded-lg bg-white/60 px-2.5 py-1.5 text-xs font-medium opacity-90">
                             {session.booking_id
-                              ? `${titleize(session.event_category)} / ${titleize(session.event_sub_type)}`
+                              ? (session as any).linked_guest_name 
+                                ? `With Room: ${(session as any).linked_guest_name}`
+                                : `${titleize(session.event_category)} / ${titleize(session.event_sub_type)}`
                               : isBlocked ? 'Fully booked' : '+ Create booking'}
                           </span>
                         </button>
@@ -631,7 +646,15 @@ export default function BanquetBookingsPage() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{String(booking.venue_name ?? '--')}</div>
-                            <div className="text-xs text-slate-500">{booking.with_room ? 'With room' : 'Banquet only'}</div>
+                            <div className="text-xs text-slate-500">
+                              {booking.with_room ? (
+                                <span className="text-indigo-600 font-medium">
+                                  With Room: {String(booking.linked_guest_name ?? `#${booking.linked_booking_id}`)}
+                                </span>
+                              ) : (
+                                'Banquet only'
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
@@ -669,6 +692,21 @@ export default function BanquetBookingsPage() {
                                 >
                                   <Send className="h-4 w-4 text-indigo-600" />
                                 </Button>
+                                {['CONF-U', 'CONF-P', 'TENT'].includes(String(booking.status)) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      const params = new URLSearchParams();
+                                      params.set('banquet_booking_id', String(booking.id));
+                                      if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
+                                      navigate(`/crm/quotes/new?${params.toString()}`);
+                                    }}
+                                    title="Generate Contract"
+                                  >
+                                    <FileText className="h-4 w-4 text-emerald-600" />
+                                  </Button>
+                                )}
                                 <Button variant="ghost" size="sm" onClick={() => openEdit(booking)}>
                                   Update
                                 </Button>
@@ -1094,13 +1132,27 @@ export default function BanquetBookingsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Linked Room Booking</Label>
-                      <Input
-                        type="number"
+                      <Select
                         disabled={form.banquet_type !== 'with_room'}
-                        placeholder={form.banquet_type === 'with_room' ? 'Booking ID required' : 'Only for with room'}
                         value={form.linked_booking_id}
-                        onChange={(e) => setForm({ ...form, linked_booking_id: e.target.value })}
-                      />
+                        onValueChange={(value) => setForm({ ...form, linked_booking_id: value })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={form.banquet_type === 'with_room' ? "Select room booking" : "Only for with room"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roomBookings
+                            .filter(b => b.status !== 'CXL')
+                            .map((b) => (
+                              <SelectItem key={b.id} value={String(b.id)}>
+                                #{b.id} - {b.guest_name} ({b.check_in ? format(new Date(b.check_in), 'MMM dd') : ''})
+                              </SelectItem>
+                            ))}
+                          {roomBookings.length === 0 && (
+                            <SelectItem value="none" disabled>No active room bookings</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </CardContent>
                 </Card>

@@ -79,8 +79,38 @@ export default function PublicContractView() {
                <h3 className="text-xl font-bold">Terms & Conditions</h3>
                <p className="text-slate-300 text-sm mt-1">Please read the following stipulations carefully.</p>
              </div>
-             <div className="p-8 prose prose-slate max-w-none font-serif leading-relaxed text-slate-800 whitespace-pre-wrap">
-                {contract.terms || 'No specific terms documented.'}
+             <div className="p-8 prose prose-slate max-w-none font-serif leading-relaxed text-slate-800 whitespace-pre-wrap border-b border-slate-100">
+                {contract.terms || 'No specific overarching terms documented.'}
+             </div>
+
+             {/* Dynamic Policies Section */}
+             <div className="p-8 bg-slate-50/50 space-y-6">
+               <h4 className="text-sm font-bold text-slate-900 uppercase tracking-widest border-b pb-2 border-slate-200 flex items-center gap-2">
+                 <CheckCircle className="w-4 h-4 text-indigo-500" /> Supplemental Clauses & Policies
+               </h4>
+               <div className="grid grid-cols-1 gap-6">
+                 {(() => {
+                   const list = contract.policies?.policy_list || [];
+                   if (list.length === 0) {
+                     return <p className="text-sm text-slate-400 italic">No supplemental policies provided.</p>;
+                   }
+                   const COLOR_BORDER: Record<string, string> = {
+                     red: 'border-red-500', amber: 'border-amber-500', green: 'border-green-500',
+                     blue: 'border-blue-500', indigo: 'border-indigo-500', slate: 'border-slate-500',
+                   };
+                   const COLOR_TEXT: Record<string, string> = {
+                     red: 'text-red-700', amber: 'text-amber-700', green: 'text-green-700',
+                     blue: 'text-blue-700', indigo: 'text-indigo-700', slate: 'text-slate-700',
+                   };
+
+                   return list.map((p: any) => (
+                     <div key={p.id} className={`bg-white border-l-4 p-4 shadow-sm rounded-r-lg ${COLOR_BORDER[p.color] || 'border-slate-300'}`}>
+                       <p className={`text-[10px] font-black uppercase tracking-tighter mb-1 ${COLOR_TEXT[p.color] || 'text-slate-900'}`}>{p.title}</p>
+                       <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{p.content}</p>
+                     </div>
+                   ));
+                 })()}
+               </div>
              </div>
           </div>
 
