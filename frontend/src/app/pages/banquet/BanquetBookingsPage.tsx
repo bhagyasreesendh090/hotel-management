@@ -700,7 +700,7 @@ export default function BanquetBookingsPage() {
                                       const params = new URLSearchParams();
                                       params.set('banquet_booking_id', String(booking.id));
                                       if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
-                                      navigate(`/crm/quotes/new?${params.toString()}`);
+                                      navigate(`/crm/contracts/new?${params.toString()}`);
                                     }}
                                     title="Generate Contract"
                                   >

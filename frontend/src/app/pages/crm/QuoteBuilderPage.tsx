@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRecentEmails } from '../../hooks/useRecentEmails';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowLeft, Save, Send, Plus, Trash2, Tag, Mail, FileText, Edit2, Check, X } from 'lucide-react';
@@ -104,6 +105,7 @@ export default function QuoteBuilderPage() {
 
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailData, setEmailData] = useState({ to_email: '', cc_email: '', subject: 'Your Quotation from Hotel Pramod', body: '' });
+  const { recentEmails, addEmail } = useRecentEmails();
   const [prefillDone, setPrefillDone] = useState(false);
 
   const isEditing = Boolean(id);
@@ -279,6 +281,8 @@ export default function QuoteBuilderPage() {
       return res.data;
     },
     onSuccess: () => {
+      addEmail(emailData.cc_email);
+      addEmail(emailData.to_email);
       toast.success('Quotation safely dispatched to customer!');
       setIsEmailDialogOpen(false);
       navigate(leadId ? `/crm/leads/${leadId}` : '/crm/leads');
@@ -722,11 +726,17 @@ export default function QuoteBuilderPage() {
               <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">Cc:</Label>
               <Input
                 type="email"
+                list="cc-suggestions"
                 className="flex-1 border-0 shadow-none focus-visible:ring-0 text-sm px-0 h-8"
                 value={emailData.cc_email}
                 onChange={e => setEmailData(prev => ({...prev, cc_email: e.target.value}))}
                 placeholder="manager@example.com"
               />
+              <datalist id="cc-suggestions">
+                {recentEmails.map(email => (
+                  <option key={email} value={email} />
+                ))}
+              </datalist>
             </div>
             <div className="flex items-center px-6 py-3 gap-4 bg-slate-50/50">
               <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">Subject:</Label>

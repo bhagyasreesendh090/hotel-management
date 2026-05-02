@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRecentEmails } from '../../hooks/useRecentEmails';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -19,6 +20,7 @@ export default function QuotationsPage() {
   const [search, setSearch] = React.useState('');
   const [emailDialog, setEmailDialog] = React.useState<any | null>(null);
   const [emailData, setEmailData] = React.useState({ to_email: '', cc_email: '', subject: 'Your Quotation from Hotel Pramod', body: '' });
+  const { recentEmails, addEmail } = useRecentEmails();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['quotations_all'],
@@ -34,6 +36,8 @@ export default function QuotationsPage() {
       await apiClient.post(`/api/crm/quotations/${emailDialog.id}/send-email`, emailData);
     },
     onSuccess: () => {
+      addEmail(emailData.cc_email);
+      addEmail(emailData.to_email);
       toast.success('Quotation email sent to customer!');
       setEmailDialog(null);
       setEmailData({ to_email: '', cc_email: '', subject: 'Your Quotation from Hotel Pramod', body: '' });
@@ -204,11 +208,17 @@ export default function QuotationsPage() {
               <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">Cc:</Label>
               <Input
                 type="email"
+                list="cc-suggestions"
                 className="flex-1 border-0 shadow-none focus-visible:ring-0 text-sm px-0 h-8"
                 value={emailData.cc_email}
                 onChange={e => setEmailData(p => ({ ...p, cc_email: e.target.value }))}
                 placeholder="manager@hotel.com (optional)"
               />
+              <datalist id="cc-suggestions">
+                {recentEmails.map(email => (
+                  <option key={email} value={email} />
+                ))}
+              </datalist>
             </div>
             <div className="flex items-center px-6 py-3 gap-4 bg-slate-50/50">
               <Label className="text-sm font-medium text-slate-500 w-16 shrink-0">Subject:</Label>

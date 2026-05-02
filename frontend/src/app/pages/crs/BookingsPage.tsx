@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { differenceInCalendarDays, format } from 'date-fns';
-import { CheckCircle, Edit2, Eye, Plus, Send, XCircle } from 'lucide-react';
+import { CheckCircle, Edit2, Eye, FileText, Plus, Send, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useProperty } from '../../context/PropertyContext';
 import apiClient from '../../api/client';
@@ -407,7 +407,7 @@ const BookingsPage: React.FC = () => {
                               const params = new URLSearchParams();
                               params.set('room_booking_id', String(booking.id));
                               if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
-                              navigate(`/crm/quotes/new?${params.toString()}`);
+                              navigate(`/crm/contracts/new?${params.toString()}`);
                             }}
                             title="Generate Contract"
                           >

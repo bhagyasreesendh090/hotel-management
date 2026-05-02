@@ -246,6 +246,8 @@ CREATE TABLE IF NOT EXISTS ds_sequences (
 CREATE TABLE IF NOT EXISTS quotations (
   id                SERIAL PRIMARY KEY,
   lead_id           INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+  booking_id        INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+  banquet_booking_id INTEGER REFERENCES banquet_bookings(id) ON DELETE SET NULL,
   property_id       INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   quotation_number  VARCHAR(64) NOT NULL,
   client_salutation VARCHAR(64) DEFAULT 'Dear Sir / Ma''am',
