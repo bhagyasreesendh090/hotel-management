@@ -48,11 +48,11 @@ To: {{CLIENT_NAME}}
 Cell: {{PHONE}}
 Email: {{EMAIL}}
 
-Sub: Accommodation and banquet event contract between {{CLIENT_NAME}} & Pramod Lands End, Gopalpur for the Residential Wedding of {{EVENT_NAME}} on {{EVENT_DATES}}
+Sub: Accommodation and banquet event contract between {{CLIENT_NAME}} & [Hotel Name] for the [Event Name] of {{EVENT_NAME}} on {{EVENT_DATES}}
 
 Dear {{CLIENT_NAME}},
 
-Thank you for choosing Pramod Lands End, Gopalpur. According to your requirements, we are happy to confirm the following rates and arrangements for "{{EVENT_NAME}}" residential wedding.
+Thank you for choosing [Hotel Name]. According to your requirements, we are happy to confirm the following rates and arrangements for "{{EVENT_NAME}}".
 
 (i) Accommodations
 (Room types, charges with inclusions/exclusions)	Annexure - A
@@ -63,18 +63,18 @@ Thank you for choosing Pramod Lands End, Gopalpur. According to your requirement
 (iv) Most important terms and conditions	Annexure - D
 
 Dates	Event Name	Minimum Guaranteed Event Revenue
-{{EVENT_DATES}}	Residential Wedding of "{{EVENT_NAME}}"	Rs. {{AMOUNT}} + GST
+{{EVENT_DATES}}	{{EVENT_NAME}}	Rs. {{AMOUNT}} + GST
 
 If this contract accurately sets forth the understanding and agreement between us, please indicate your acceptance by signing and returning a copy of this contract and furnishing the initial deposit.
 
-For Padma Eastern Hotels Pvt Ltd	I understand and accept the contract.
+For [Company Name]	I understand and accept the contract.
 
 
-Amit Sahu
-Manager - Sales
-Pramod Lands End, Gopalpur
-Contact No: +91 9040084866
-Email: amit.sahu@pramodresorts.com	
+[Manager Name]
+[Manager Title]
+[Hotel Name]
+Contact No: [Phone]
+Email: [Email]
 
 {{CLIENT_NAME}}
 {{ADDRESS}}
@@ -84,166 +84,54 @@ Email: {{EMAIL}}
 Annexure- A
 ACCOMMODATION:
 
-Sunday, 26 November, 2023
-Accommodation	Rooms	Pax	Tariff	Total	GST%	GST	Amount
-Queens Court	16	32	8,000	1,28,000	18%	23,040	1,51,040
-Kings Court	8	16	10,000	80,000	18%	14,400	94,400
-Family Suite	3	12	12,000	36,000	18%	6,480	42,480
-Family Executive Suite	3	12	12,000	36,000	18%	6,480	42,480
-Classic Suite	7	28	12,000	84,000	18%	15,120	99,120
-Extra persons		20	2,000	40,000	18%	7,200	47,200
-Day total accommodation	37	120		4,04,000		72,720	4,76,720
-
-Monday, 27 November, 2023
-Accommodation	Rooms	Pax	Tariff	Total	GST%	GST	Amount
-Queens Court	16	32	8,000	1,28,000	18%	23,040	1,51,040
-Kings Court	8	16	10,000	80,000	18%	14,400	94,400
-Family Suite	3	12	12,000	36,000	18%	6,480	42,480
-Family Executive Suite	3	12	12,000	36,000	18%	6,480	42,480
-Classic Suite	7	28	12,000	84,000	18%	15,120	99,120
-Extra persons		20	2,000	40,000	18%	7,200	47,200
-Day total Accommodation	37	120		4,04,000		72,720	4,76,720
-
-Tuesday, 28 November, 2023
-Accommodation	Rooms	Pax	Tariff	Total	GST%	GST	Amount
-Queens Court	0	32	8,000	0	18%	0	0
-Kings Court	0	0	10,000	0	18%	0	0
-Family Suite	0	0	12,000	0	18%	0	0
-Family Executive Suite	0	0	12,000	0	18%	0	0
-Classic Suite	0	0	12,000	0	18%	0	0
-Extra persons	0	20	2,000	40,000	18%	7,200	47,200
-Day total Accommodation				40,000		7,200	47,200
+[Insert Accommodation Table Here]
 
 A1.	GST as applicable shall be additional to above tariffs.
 A2.	Room service, laundry, spa services, bar and travel services will be billed separately and must be settled on a direct payment basis by guests.
-A3.	As this is an event with complete inventory buyout, reduction in rooms is not permissible. The rooms subtotal shall still be payable in full, as we will not be able to sell the remaining room inventory to other guests.
-A4.	Our standard check-in time is 2 pm. For early arrivals before 10 am, we advise you to reserve rooms from the previous night. 
-A5.	Our standard check-out time is 11 am. Late departures after 2 pm will be subject to our late check out fee. Departures after 5 pm will be charged for the full day.
-A6.	Any requirement for rooms on 20 Jan, 2024 and 23 Jan, 2024 will be charged as per the above tariffs on bed and breakfast plan.
-A7.	These tariffs are valid for 21 Jan, 2024 and 22 Jan, 2024 only. In case the dates of event change the tariff will also be revised accordingly.
-A8.	Please share your room wise guest occupancy with names along with ID cards by 17 Jan, 2023 for hassle free check in.
+A3.	Any reduction in rooms is subject to the terms agreed.
+A4.	Standard check-in time is 2 pm. 
+A5.	Standard check-out time is 11 am.
+A6.	Any requirement for rooms will be charged as per the above tariffs.
+A7.	These tariffs are valid for the event dates only.
+A8.	Please share your guest list for hassle-free check-in.
+
 Inclusions:
 ●	Non-alcoholic welcome drink on arrival.
-●	Accommodation on a double sharing basis.
-●	Buffet breakfast at our restaurant. (Not applicable on the day of arrival)
-●	Packaged drinking water, tea/coffee maker with the supplies of tea bags, coffee powder, sugar, and milk sachets.
-●	Complimentary wi-fi (2MBPS speed) in rooms, free usage swimming pool from 08:00 am to 08:00 pm.
+●	Accommodation as specified.
+●	Buffet breakfast at our restaurant.
+●	Complimentary wi-fi and pool usage.
 
 Annexure- B
 FOOD & BEVERAGE:
-Sunday, 26 November, 2023
-Food & Beverage	Venue	Pax	Tariff	Total	GST%	GST	Amount
-Breakfast (included)	Smoke House	100	0	0	18%	0	0
-Breakfast (chargeable)	Smoke House	30	500	15,000	18%	2,700	17,700
-Lunch	Emerald	130	1,800	2,34,000	18%	42,120	2,76,120
-Ritual Snacks	Courtyard	130	700	91,000	18%	16,380	1,07,380
-Hi Tea	Courtyard	130	700	91,000	18%	16,380	1,07,380
-Dinner	Lawn	180	2,200	3,96,000	18%	71,280	4,67,280
-Day total F&B				8,27,000		1,48,860	9,75,860
 
-Monday, 27 November, 2023
-Food & Beverage	Venue	Pax	Tariff	Total	GST%	GST	Amount
-Breakfast (included)	Smoke House	100	0	0	18%	0	0
-Breakfast (chargeable)	Smoke House	30	500	15,000	18%	2,700	17,700
-Lunch	Emerald	130	1,800	2,34,000	18%	42,120	2,76,120
-Ritual Snacks	Courtyard	130	700	91,000	18%	16,380	1,07,380
-Hi Tea	Courtyard	130	700	91,000	18%	16,380	1,07,380
-Dinner	Lawn	180	2,200	3,96,000	18%	71,280	4,67,280
-Day total F&B				8,27,000		1,48,860	9,75,860
-
-Tuesday, 28 November, 2023
-Food & Beverage	Venue	Pax	Tariff	Total	GST%	GST	Amount
-Breakfast (included)	Smoke House	100	0	0	18%	0	0
-Breakfast (chargeable)	Smoke House	50	500	25,000	18%	4,500	29,500
-Lunch							
-Food Packets		40	500	20,000	18%	3,600	23,600
-Vendor fees		1	50,000	50,000	18%	9,000	59,000
-Day total F&B				95,000		17,100	1,12,100
+[Insert F&B Table Here]
 
 B1.	GST as applicable shall be additional to above tariffs.
-B2.	These tariffs are for the minimum guaranteed persons as stated above. Even in case of reduction in the number of persons, the F&B sub total shall still be payable in full, as significant fixed costs in delivering F&B services are incurred by the hotel irrespective of the number of attending guests.
-B3.	These tariffs are valid for 21 Jan, 2024 and 22 Jan, 2024 only. In case the dates of event change the tariff will also be revised accordingly.
-Inclusions:
-●	All day tea coffee counter from 8 am to 8 pm with Cookies, Toast & Butter.
-●	Two live counters at all major meals
-●	Dry fruits for pass around / return gifts / packed sweets / packed breakfast / lunch are not included in the above tariff.
-Flow of Events:
+B2.	These tariffs are for the minimum guaranteed persons.
+B3.	These tariffs are valid for the event dates only.
 
-Date	Event details
-21st Jan 2024	10 am onwards: Check in
-1 pm to 3 pm: Bhaat with lunch at Fortress
-4 pm to 6 pm: Hi-tea and snacks at Terrace
-7 pm onwards: Sangeet with ritual snacks followed by dinner at the Lawn
-22nd Jan 2024	7:30 am to 10:30 am: Breakfast at The Khao Galli.
-11 am to 12 noon: Haldi with mocktails and snacks at Clifftop
-2 pm to 5 pm: Wedding and lunch at the Fortress
-4 pm to 6 pm: Hi-tea and snacks at Terrace
-7:30 pm onwards: Cocktail Dinner at the Lawn
-23rd Jan 2024	7:30 am to 10:30 am: Breakfast at The Khao Galli
-11 am: Check out
+Inclusions:
+●	Standard Menu selections.
+●	Flow of events as per mutual agreement.
 
 Annexure- C
 SCHEDULE OF PAYMENTS:
 
-Date	Description	Total	GST	Amount
-Sunday, 26 November, 2023	Accommodation	4,04,000	72,720	4,76,720
-Monday, 27 November, 2023	Accommodation	4,04,000	72,720	4,76,720
-Tuesday, 28 November, 2023	Accommodation	40,000	7,200	47,200
-Sunday, 26 November, 2023	F&B	8,27,000	1,48,860	9,75,860
-Monday, 27 November, 2023	F&B	8,27,000	1,48,860	9,75,860
-Tuesday, 28 November, 2023	F&B	95,000	17,100	1,12,100
-Minimum guaranteed revenue for event		25,97,000	4,67,460	30,64,460
+[Insert Payment Schedule Here]
 
 BANKING INFORMATION:
 
-C1.	A security deposit @ 5% of the base total is payable by the event manager / decorator to the hotel. The same shall be refundable after verification of any damages to the property. In case of non payment by the due date, we will be unable to permit the event manager / decorator from entering our premises. 
-C2.	Please be reminded that 100% of the prepayment of the minimum guaranteed event revenue must be received before the group’s first arrival.  In case of partial payments, please note we will not be able to check in your guests without confirmation of all payments being cleared.
-C3.	If payment schedules are not adhered to, Pramod Lands End reserves the right to cancel this booking and proceed with refunds as per the below cancellation policy without liability.
-C4.	We do not accept payment by cheques.
-
-CANCELLATIONS/ AMENDMENTS/ RETENTION CHARGES:
-C5.	In the unfortunate event of your planned celebrations being cancelled, the following cancellation policy shall be enforced: 
-Cancellation/ Amendment	Refund policy
-Prior to 90 days to the scheduled event date	100% advance will be refunded.
-Between 46 to 90 days of the scheduled date	50% advance will be refunded.
-Before 45 days to the scheduled event date	No refund
-
+C1.	Standard payment terms apply. 100% of the minimum guaranteed revenue must be received before the event.
+C2.	Payments must be cleared before guest arrival.
+C3.	Hotel reserves the right to cancel if payment schedules are not met.
 
 Annexure- D
+MOST IMPORTANT TERMS AND CONDITIONS:
 
-MOST IMPORTANT TERMS - ACCOMMODATIONS:
-D1.	For partial inventory buyout, any reduction in the original block of rooms must be informed 14 days prior to the scheduled arrival date. Any amendments/reductions initiated within 14 days of the arrival date will be charged in full.
-D2.	Please share your room wise guest occupancy with names along with ID cards 3 days before the event for hassle free check in.
-
-MOST IMPORTANT TERMS - FOOD & BEVERAGE:
-D3.	The above-mentioned rates are quoted on the basis of the menu matrix selected, attached and agreed. The rates are valid for this function/ event and the scheduled date only. 
-D4.	Minor alterations on the menu shall be accommodated if done 7 days before the event. Addition of items will be charged extra as per our banquet prices.
-D5.	We do not serve alcohol in the hotel premises. 
-D6.	Food prepared for events is prepared in bulk and has a short life. In view of safety, we do not permit parcels/ packed foods/ take away buffet food. The same is prepared a-la-carte, packaged and handed over to guests. Please share such requirements in advance.
-D7.	All snacks shall be served for 90 minutes from the time decided by the host.
-D8.	 All food & beverage has to be sourced from the hotel. To ensure your safety, outside food, beverages and food vendors are not allowed to be a part of the event. In case you have any preferences towards any specific vendor, please advise, we shall procure the same for you.
-
-MOST IMPORTANT TERMS - DECORATION / EVENT MANAGER
-D9.	The hotel’s scope of services is limited to accommodation AND food and beverage. Everything else shall fall upon the guest or the event manager’s scope.
-D10.	The event manager / host must submit a permission from Gopalpur Police Station for conducting any event on the sand dunes or undertaking any street procession.
-D11.	Only the use of paper confetti is permitted. To protect the sea coast from pollution by single use plastic, the use of plastic confetti is prohibited.
-D12.	The event manager / decorator must arrange for generator power supply for all the light, sound, stage requirements. The hotel reserves the right to stop the event manager from connecting any equipment to the hotel’s power supply as the hotel infrastructure is not designed to handle the same.
-D13.	The use of fireworks indoors or any kind of fire shows inside the hotel premises is strictly prohibited.
-D14.	The event manager / decorator shall be permitted to set up only 24 hours prior to guest check in, subject to payment of security deposit. For earlier access, entry will be subject to availability. For guaranteed access, venue rentals shall be payable.
-D15.	All equipment and set-up must be dismantled and cleared from the hotel premises within 24 hours of the event end time.
-D16.	No live animals will be allowed in the hotel at any time.
-D17.	Hazardous substances, flammable substances, firearms, weapons of any sort are not permitted inside the hotel premises.
-D18.	No permanent alterations are allowed, including nails or hooks in the walls, roof or frames. Any damage to the hotel including linen wear and tear will be charged accordingly. The guests shall not be entitled to paint, affix or attach any matter to the walls of the function room.
-
-MOST IMPORTANT TERMS - LIMITS ON HOTEL’S LIABILITIES
-D19.	The hotel will not be responsible for any kind of damage, loss or theft of valuables. Please use the safety lockers provided in the rooms.
-D20.	The hotel does not guarantee the safety of children. Guests must ensure the safety of their children, especially around the pool, elevators, stairways, terrace, glass railings, reflection pool, parking area, etc.
-D21.	The hotel, its employees will not be held liable for any loss of/or damage to guests’ property while utilising this facility, any personal injury sustained, harm caused in whatever manner, or death caused due to personal injuries by negligence of guest’s. Minor children remain the responsibility of the parents/ guardians and must at all times be accompanied by a responsible adult whilst using the hotel/ pool deck and other facilities.
-D22.	Force majeure: In the event of any disaster/ Act of God / major breakdowns in the hotel due to unforeseen circumstances, and the inability of the hotel to conduct the event, the hotel management reserves the right to amend/ cancel the booking. On cancellations of booking by the Hotel, the guest/  booker/ organizer will be refunded the advance paid within 7  working days without any interest. The hotel shall not be liable for making alternative arrangements, nor shall the hotel be liable to compensate the guest/ booker/ organizer for any losses financial or otherwise.
-D23.	Proof of Identity with address (issued by the Government of India) of every guest is required upon check-in as per government regulations. For foreign nationals, a passport with a valid visa is required; failing to submit the copy of the id proof, the hotel has the right to deny the check-in on arrival. 
-D24.	Children under the age of 18 may be accommodated only with the consent of their parents.
-D25.	All government policies/ regulations prevalent during the time of the conference/ event shall apply.
-D26.	All disputes will be subject to the jurisdiction as per the laws prevalent in Odisha at the time of signing the contract.`;
+D1.	Cancellation policies as per standard hotel norms apply.
+D2.	Proof of identity is mandatory for all guests.
+D3.	All government regulations must be followed during the event.
+D4.	Force Majeure clause applies to all bookings.`;
 
 export default function ContractBuilderPage() {
 
@@ -257,7 +145,7 @@ export default function ContractBuilderPage() {
   const { selectedPropertyId } = useProperty();
 
   const [status, setStatus] = useState('draft');
-  const [terms, setTerms] = useState(DEFAULT_CONTRACT_TEMPLATE);
+  const [terms, setTerms] = useState('');
   const [flow, setFlow] = useState('hotel_proposes');
   const [paymentDeadline, setPaymentDeadline] = useState('');
   const [expiresOn, setExpiresOn] = useState('');
@@ -385,11 +273,11 @@ ${address}
 Cell: ${phone}
 Email: ${email}
 
-Sub: Accommodation and banquet event contract between ${clientName} & Pramod Lands End, Gopalpur for the Residential Wedding of ${eventName} on ${eventDates}
+Sub: Accommodation and banquet event contract between ${clientName} & [Hotel Name] for the ${eventName} on ${eventDates}
 
 Dear ${clientName},
 
-Thank you for choosing Pramod Lands End, Gopalpur. According to your requirements, we are happy to confirm the following rates and arrangements for "${eventName}" residential wedding.
+Thank you for choosing [Hotel Name]. According to your requirements, we are happy to confirm the following rates and arrangements for "${eventName}".
 
 (i) Accommodations
 (Room types, charges with inclusions/exclusions)	Annexure - A
@@ -400,18 +288,18 @@ Thank you for choosing Pramod Lands End, Gopalpur. According to your requirement
 (iv) Most important terms and conditions	Annexure - D
 
 Dates	Event Name	Minimum Guaranteed Event Revenue
-${eventDates}	Residential Wedding of "${eventName}"	Rs. ${Number(totalAmount).toLocaleString('en-IN')} + GST
+${eventDates}	${eventName}	Rs. ${Number(totalAmount).toLocaleString('en-IN')} + GST
 
 If this contract accurately sets forth the understanding and agreement between us, please indicate your acceptance by signing and returning a copy of this contract and furnishing the initial deposit.
 
-For Padma Eastern Hotels Pvt Ltd	I understand and accept the contract.
+For [Company Name]	I understand and accept the contract.
 
 
-Amit Sahu
-Manager - Sales
-Pramod Lands End, Gopalpur
-Contact No: +91 9040084866
-Email: amit.sahu@pramodresorts.com	
+[Manager Name]
+[Manager Title]
+[Hotel Name]
+Contact No: [Phone]
+Email: [Email]
 
 ${clientName}
 ${address}
@@ -425,18 +313,17 @@ ${annexureA}
 
 A1.	GST as applicable shall be additional to above tariffs.
 A2.	Room service, laundry, spa services, bar and travel services will be billed separately and must be settled on a direct payment basis by guests.
-A3.	As this is an event with complete inventory buyout, reduction in rooms is not permissible. The rooms subtotal shall still be payable in full, as we will not be able to sell the remaining room inventory to other guests.
-A4.	Our standard check-in time is 2 pm. For early arrivals before 10 am, we advise you to reserve rooms from the previous night. 
-A5.	Our standard check-out time is 11 am. Late departures after 2 pm will be subject to our late check out fee. Departures after 5 pm will be charged for the full day.
-A6.	Any requirement for rooms will be charged as per the above tariffs on bed and breakfast plan.
+A3.	Any reduction in rooms is subject to the terms agreed.
+A4.	Standard check-in time is 2 pm. 
+A5.	Standard check-out time is 11 am.
+A6.	Any requirement for rooms will be charged as per the above tariffs.
 A7.	These tariffs are valid for event dates only. In case the dates of event change the tariff will also be revised accordingly.
-A8.	Please share your room wise guest occupancy with names along with ID cards for hassle free check in.
+A8.	Please share your guest list for hassle free check in.
 Inclusions:
 ●	Non-alcoholic welcome drink on arrival.
-●	Accommodation on a double sharing basis.
-●	Buffet breakfast at our restaurant. (Not applicable on the day of arrival)
-●	Packaged drinking water, tea/coffee maker with the supplies of tea bags, coffee powder, sugar, and milk sachets.
-●	Complimentary wi-fi (2MBPS speed) in rooms, free usage swimming pool from 08:00 am to 08:00 pm.
+●	Accommodation as specified.
+●	Buffet breakfast at our restaurant.
+●	Complimentary wi-fi and pool usage.
 
 Annexure- B
 FOOD & BEVERAGE:
@@ -444,12 +331,11 @@ FOOD & BEVERAGE:
 ${annexureB}
 
 B1.	GST as applicable shall be additional to above tariffs.
-B2.	These tariffs are for the minimum guaranteed persons as stated above. Even in case of reduction in the number of persons, the F&B sub total shall still be payable in full, as significant fixed costs in delivering F&B services are incurred by the hotel irrespective of the number of attending guests.
+B2.	These tariffs are for the minimum guaranteed persons.
 B3.	These tariffs are valid for event dates only. In case the dates of event change the tariff will also be revised accordingly.
 Inclusions:
-●	All day tea coffee counter from 8 am to 8 pm with Cookies, Toast & Butter.
-●	Two live counters at all major meals
-●	Dry fruits for pass around / return gifts / packed sweets / packed breakfast / lunch are not included in the above tariff.
+●	Standard Menu selections.
+●	Flow of events as per mutual agreement.
 Flow of Events:
 
 Date	Event details
@@ -461,58 +347,25 @@ SCHEDULE OF PAYMENTS:
 Date	Description	Total	GST	Amount
 [Insert Schedule of Payments here]
 
-Minimum guaranteed revenue for event		Rs. ${Number(amount).toLocaleString('en-IN')}
+Minimum guaranteed revenue for event		Rs. ${Number(totalAmount).toLocaleString('en-IN')}
 
 BANKING INFORMATION:
 
-C1.	A security deposit @ 5% of the base total is payable by the event manager / decorator to the hotel. The same shall be refundable after verification of any damages to the property. In case of non payment by the due date, we will be unable to permit the event manager / decorator from entering our premises. 
-C2.	Please be reminded that 100% of the prepayment of the minimum guaranteed event revenue must be received before the group’s first arrival.  In case of partial payments, please note we will not be able to check in your guests without confirmation of all payments being cleared.
-C3.	If payment schedules are not adhered to, Pramod Lands End reserves the right to cancel this booking and proceed with refunds as per the below cancellation policy without liability.
-C4.	We do not accept payment by cheques.
+C1.	Standard payment terms apply. 100% of the minimum guaranteed revenue must be received before the event.
+C2.	Payments must be cleared before guest arrival.
+C3.	Hotel reserves the right to cancel if payment schedules are not met.
 
 CANCELLATIONS/ AMENDMENTS/ RETENTION CHARGES:
-C5.	In the unfortunate event of your planned celebrations being cancelled, the following cancellation policy shall be enforced: 
-Cancellation/ Amendment	Refund policy
-Prior to 90 days to the scheduled event date	100% advance will be refunded.
-Between 46 to 90 days of the scheduled date	50% advance will be refunded.
-Before 45 days to the scheduled event date	No refund
-
+C5.	Standard cancellation policy applies.
 
 Annexure- D
 
-MOST IMPORTANT TERMS - ACCOMMODATIONS:
-D1.	For partial inventory buyout, any reduction in the original block of rooms must be informed 14 days prior to the scheduled arrival date. Any amendments/reductions initiated within 14 days of the arrival date will be charged in full.
-D2.	Please share your room wise guest occupancy with names along with ID cards 3 days before the event for hassle free check in.
+MOST IMPORTANT TERMS AND CONDITIONS:
 
-MOST IMPORTANT TERMS - FOOD & BEVERAGE:
-D3.	The above-mentioned rates are quoted on the basis of the menu matrix selected, attached and agreed. The rates are valid for this function/ event and the scheduled date only. 
-D4.	Minor alterations on the menu shall be accommodated if done 7 days before the event. Addition of items will be charged extra as per our banquet prices.
-D5.	We do not serve alcohol in the hotel premises. 
-D6.	Food prepared for events is prepared in bulk and has a short life. In view of safety, we do not permit parcels/ packed foods/ take away buffet food. The same is prepared a-la-carte, packaged and handed over to guests. Please share such requirements in advance.
-D7.	All snacks shall be served for 90 minutes from the time decided by the host.
-D8.	 All food & beverage has to be sourced from the hotel. To ensure your safety, outside food, beverages and food vendors are not allowed to be a part of the event. In case you have any preferences towards any specific vendor, please advise, we shall procure the same for you.
-
-MOST IMPORTANT TERMS - DECORATION / EVENT MANAGER
-D9.	The hotel’s scope of services is limited to accommodation AND food and beverage. Everything else shall fall upon the guest or the event manager’s scope.
-D10.	The event manager / host must submit a permission from Gopalpur Police Station for conducting any event on the sand dunes or undertaking any street procession.
-D11.	Only the use of paper confetti is permitted. To protect the sea coast from pollution by single use plastic, the use of plastic confetti is prohibited.
-D12.	The event manager / decorator must arrange for generator power supply for all the light, sound, stage requirements. The hotel reserves the right to stop the event manager from connecting any equipment to the hotel’s power supply as the hotel infrastructure is not designed to handle the same.
-D13.	The use of fireworks indoors or any kind of fire shows inside the hotel premises is strictly prohibited.
-D14.	The event manager / decorator shall be permitted to set up only 24 hours prior to guest check in, subject to payment of security deposit. For earlier access, entry will be subject to availability. For guaranteed access, venue rentals shall be payable.
-D15.	All equipment and set-up must be dismantled and cleared from the hotel premises within 24 hours of the event end time.
-D16.	No live animals will be allowed in the hotel at any time.
-D17.	Hazardous substances, flammable substances, firearms, weapons of any sort are not permitted inside the hotel premises.
-D18.	No permanent alterations are allowed, including nails or hooks in the walls, roof or frames. Any damage to the hotel including linen wear and tear will be charged accordingly. The guests shall not be entitled to paint, affix or attach any matter to the walls of the function room.
-
-MOST IMPORTANT TERMS - LIMITS ON HOTEL’S LIABILITIES
-D19.	The hotel will not be responsible for any kind of damage, loss or theft of valuables. Please use the safety lockers provided in the rooms.
-D20.	The hotel does not guarantee the safety of children. Guests must ensure the safety of their children, especially around the pool, elevators, stairways, terrace, glass railings, reflection pool, parking area, etc.
-D21.	The hotel, its employees will not be held liable for any loss of/or damage to guests’ property while utilising this facility, any personal injury sustained, harm caused in whatever manner, or death caused due to personal injuries by negligence of guest’s. Minor children remain the responsibility of the parents/ guardians and must at all times be accompanied by a responsible adult whilst using the hotel/ pool deck and other facilities.
-D22.	Force majeure: In the event of any disaster/ Act of God / major breakdowns in the hotel due to unforeseen circumstances, and the inability of the hotel to conduct the event, the hotel management reserves the right to amend/ cancel the booking. On cancellations of booking by the Hotel, the guest/  booker/ organizer will be refunded the advance paid within 7  working days without any interest. The hotel shall not be liable for making alternative arrangements, nor shall the hotel be liable to compensate the guest/ booker/ organizer for any losses financial or otherwise.
-D23.	Proof of Identity with address (issued by the Government of India) of every guest is required upon check-in as per government regulations. For foreign nationals, a passport with a valid visa is required; failing to submit the copy of the id proof, the hotel has the right to deny the check-in on arrival. 
-D24.	Children under the age of 18 may be accommodated only with the consent of their parents.
-D25.	All government policies/ regulations prevalent during the time of the conference/ event shall apply.
-D26.	All disputes will be subject to the jurisdiction as per the laws prevalent in Odisha at the time of signing the contract.`;
+D1.	Cancellation policies as per standard hotel norms apply.
+D2.	Proof of identity is mandatory for all guests.
+D3.	All government regulations must be followed during the event.
+D4.	Force Majeure clause applies to all bookings.`;
 
     setTerms(dynamicTemplate);
     if (totalAmount) {
@@ -547,8 +400,14 @@ D26.	All disputes will be subject to the jurisdiction as per the laws prevalent 
         setPolicies(existingContract.policies);
       }
     }
-
   }, [existingContract]);
+
+  useEffect(() => {
+    const b = crsBooking?.booking;
+    if (b?.guest_email) {
+      setEmailData(prev => ({ ...prev, to_email: b.guest_email }));
+    }
+  }, [crsBooking]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload: any) => {

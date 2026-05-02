@@ -247,17 +247,13 @@ const BookingsPage: React.FC = () => {
   });
 
   const sendQuoteMutation = useMutation({
-    mutationFn: async (_: any) => {},
+    mutationFn: async (_: any) => { },
   });
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     createMutation.mutate(newBooking);
   };
-
-  const selectedCreateRoomType = roomTypes.find((item) => item.id === parseInt(newBooking.room_type_id || '0', 10));
-
-  const availableMealPlans = mealPlans;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -348,43 +344,43 @@ const BookingsPage: React.FC = () => {
               {bookings
                 .filter((b) => statusFilter === 'ALL' || b.status === statusFilter)
                 .map((booking) => (
-                <TableRow key={booking.id}>
-                  <TableCell className="font-medium">{String(booking.ds_number ?? `Booking #${booking.id}`)}</TableCell>
-                  <TableCell>
-                    <div>
-                      <div>{String(booking.guest_name ?? '—')}</div>
-                      <div className="text-sm text-gray-500">{String(booking.guest_phone ?? '')}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{formatStay(booking)}</div>
-                    <div className="text-sm text-gray-500">Source: {String(booking.booking_source ?? 'direct')}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{String(booking.room_types ?? 'Room type not set')}</div>
-                    <div className="text-sm text-gray-500">
-                      {Number(booking.total_adults ?? 0)} adult(s), {Number(booking.total_children ?? 0)} child(ren)
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Meal plan: {String(booking.meal_plan ?? 'ROOM_ONLY')} | Rooms: {Number(booking.total_rooms ?? 1)}
-                    </div>
-                  </TableCell>
-                  <TableCell>₹{Number(booking.total_amount ?? 0).toLocaleString('en-IN')}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedBooking(booking);
-                          setIsViewDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                  <TableRow key={booking.id}>
+                    <TableCell className="font-medium">{String(booking.ds_number ?? `Booking #${booking.id}`)}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div>{String(booking.guest_name ?? '—')}</div>
+                        <div className="text-sm text-gray-500">{String(booking.guest_phone ?? '')}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{formatStay(booking)}</div>
+                      <div className="text-sm text-gray-500">Source: {String(booking.booking_source ?? 'direct')}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{String(booking.room_types ?? 'Room type not set')}</div>
+                      <div className="text-sm text-gray-500">
+                        {Number(booking.total_adults ?? 0)} adult(s), {Number(booking.total_children ?? 0)} child(ren)
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Meal plan: {String(booking.meal_plan ?? 'ROOM_ONLY')} | Rooms: {Number(booking.total_rooms ?? 1)}
+                      </div>
+                    </TableCell>
+                    <TableCell>₹{Number(booking.total_amount ?? 0).toLocaleString('en-IN')}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedBooking(booking);
+                            setIsViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -395,7 +391,7 @@ const BookingsPage: React.FC = () => {
                             navigate(`/crm/quotes/new?${params.toString()}`);
                           }}
                           title="Send Quotation"
-                          disabled={['CONF-U','CONF-P','CI','CO','CXL'].includes(booking.status)}
+                          disabled={['CONF-U', 'CONF-P', 'CI', 'CO', 'CXL'].includes(booking.status)}
                         >
                           <Send className="h-4 w-4 text-indigo-600" />
                         </Button>
@@ -415,47 +411,47 @@ const BookingsPage: React.FC = () => {
                           </Button>
                         )}
                         <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedBooking(booking);
-                          setStatusToUpdate(booking.status);
-                          setIsStatusDialogOpen(true);
-                        }}
-                        title="Update Status"
-                      >
-                        <Edit2 className="h-4 w-4 text-slate-600" />
-                      </Button>
-                      {['TENT', 'CONF-U', 'CONF-P'].includes(booking.status) && (
-                        <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => {
                             setSelectedBooking(booking);
-                            setIsCheckInDialogOpen(true);
+                            setStatusToUpdate(booking.status);
+                            setIsStatusDialogOpen(true);
                           }}
-                          title="Check In"
+                          title="Update Status"
                         >
-                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <Edit2 className="h-4 w-4 text-slate-600" />
                         </Button>
-                      )}
-                      {booking.status === 'CI' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedBooking(booking);
-                            setIsCheckOutDialogOpen(true);
-                          }}
-                          title="Check Out"
-                        >
-                          <XCircle className="h-4 w-4 text-blue-600" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        {['TENT', 'CONF-U', 'CONF-P'].includes(booking.status) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedBooking(booking);
+                              setIsCheckInDialogOpen(true);
+                            }}
+                            title="Check In"
+                          >
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
+                        {booking.status === 'CI' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedBooking(booking);
+                              setIsCheckOutDialogOpen(true);
+                            }}
+                            title="Check Out"
+                          >
+                            <XCircle className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -623,7 +619,7 @@ const BookingsPage: React.FC = () => {
                     <SelectValue placeholder="Select meal plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableMealPlans.map((plan, index) => (
+                    {mealPlans.map((plan: any, index: number) => (
                       <SelectItem key={`${plan.code ?? 'PLAN'}-${index}`} value={String(plan.code ?? 'CUSTOM')}>
                         {String(plan.code ?? 'PLAN')} - {String(plan.label ?? 'Custom plan')}
                       </SelectItem>
@@ -671,6 +667,78 @@ const BookingsPage: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Price Preview Section */}
+            {(() => {
+              if (!newBooking.room_type_id || !newBooking.check_in_date || !newBooking.check_out_date) return null;
+              
+              const rt = roomTypes.find(t => t.id === parseInt(newBooking.room_type_id));
+              const mp = mealPlans.find((p: any) => p.code === newBooking.meal_plan);
+              
+              if (!rt) return null;
+              
+              const checkIn = new Date(newBooking.check_in_date);
+              const checkOut = new Date(newBooking.check_out_date);
+              if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime())) return null;
+              
+              const nights = Math.max(1, differenceInCalendarDays(checkOut, checkIn));
+              const adults = parseInt(newBooking.num_adults) || 0;
+              const children = parseInt(newBooking.num_children) || 0;
+              const pax = adults + children;
+              
+              const roomRate = rt.base_rate_rbi;
+              const mealRate = mp?.price || 0;
+              const extraPersonRate = (rt as any).extra_person_charge || 0;
+              
+              const roomSub = roomRate * nights;
+              const mealSub = mealRate * pax * nights;
+              const extraPax = Math.max(0, adults - 2);
+              const extraSub = extraPax * extraPersonRate * nights;
+              
+              const subtotal = roomSub + mealSub + extraSub;
+              const gstPct = roomRate <= 7500 ? 5 : 18; // Match backend financial.js
+              const gst = (subtotal * gstPct) / 100;
+              const total = subtotal + gst;
+
+              return (
+                <Card className="bg-slate-50 border-slate-200">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold">Pricing Preview ({nights} night{nights > 1 ? 's' : ''})</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Room Charges (₹{roomRate} x {nights})</span>
+                      <span>₹{roomSub.toLocaleString('en-IN')}</span>
+                    </div>
+                    {mealSub > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Meal Plan ({newBooking.meal_plan} @ ₹{mealRate} x {pax} pax)</span>
+                        <span>₹{mealSub.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    {extraSub > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Extra Person Charges</span>
+                        <span>₹{extraSub.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-slate-200 pt-1.5 flex justify-between font-medium">
+                      <span>Subtotal</span>
+                      <span>₹{subtotal.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600">
+                      <span>GST ({gstPct}%)</span>
+                      <span>₹{gst.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="border-t border-slate-900 pt-1.5 flex justify-between font-bold text-base text-indigo-700">
+                      <span>Total Estimated Amount</span>
+                      <span>₹{total.toLocaleString('en-IN')}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
@@ -707,18 +775,15 @@ const BookingsPage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {allRooms
-                    .filter((r) => {
-                      // Filter rooms that match the booked room type
-                      const line = selectedBooking?.room_types; // Note: row.room_types is a string aggregation in this view
-                      // We should ideally have the room_type_id in the booking row, but let's try to match by category
+                    .filter((r: any) => {
                       return r.room_type_category === selectedBooking?.room_types && r.status === 'available';
                     })
-                    .map((room) => (
+                    .map((room: any) => (
                       <SelectItem key={room.id} value={room.id.toString()}>
                         Room {room.room_number} ({room.room_type_category})
                       </SelectItem>
                     ))}
-                  {allRooms.filter(r => r.room_type_category === selectedBooking?.room_types && r.status === 'available').length === 0 && (
+                  {allRooms.filter((r: any) => r.room_type_category === selectedBooking?.room_types && r.status === 'available').length === 0 && (
                     <SelectItem value="none" disabled>No available rooms found</SelectItem>
                   )}
                 </SelectContent>

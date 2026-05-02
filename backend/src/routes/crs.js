@@ -494,17 +494,39 @@ router.post(
 
       for (const line of lines) {
         const nights = nightsBetween(line.check_in, line.check_out);
-        const pax = Number(line.adults ?? 1) + Number(line.children ?? 0);
+        const numAdults = Number(line.adults ?? 1);
+        const numChildren = Number(line.children ?? 0);
+        const pax = numAdults + numChildren;
+
         const nightly = await resolveNightlyRate(client, line, corpId);
-        const rtRow = await client.query(
-          `SELECT gst_rate_override FROM room_types WHERE id = $1`,
+        
+        // Fetch Room Type details for GST override and extra person charges
+        const rtRes = await client.query(
+          `SELECT gst_rate_override, extra_person_charge, occupancy_max FROM room_types WHERE id = $1`,
           [line.room_type_id]
         );
-        const gstPct = roomGstPercent(nightly, rtRow.rows[0]?.gst_rate_override);
+        const rtRow = rtRes.rows[0];
+        const extraPersonChargeRate = Number(rtRow?.extra_person_charge ?? 0);
+        
+        // Fetch Meal Plan Rate
+        const mpRes = await client.query(
+          `SELECT per_person_rate FROM meal_plans WHERE property_id = $1 AND code = $2 AND active = TRUE`,
+          [propertyId, line.meal_plan]
+        );
+        const mealPlanRate = Number(mpRes.rows[0]?.per_person_rate ?? 0);
+
+        // Extra Person Charge calculation: if adults > 2, charge for each extra adult
+        const extraPax = Math.max(0, numAdults - 2);
+        const extraPersonChargesTotal = extraPax * extraPersonChargeRate * nights;
+
+        const gstPct = roomGstPercent(nightly, rtRow?.gst_rate_override);
+        
         const { line_sub_total, line_gst, line_total } = calcLineAmounts({
           nightlyRate: nightly,
           nights,
           pax,
+          mealPlanRate,
+          extraCharges: extraPersonChargesTotal,
           gstPct,
         });
 

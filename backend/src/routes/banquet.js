@@ -566,6 +566,24 @@ router.post(
   }
 );
 
+router.get('/banquet-bookings/:id', param('id').isInt(), async (req, res) => {
+  const id = Number(req.params.id);
+  const { rows } = await query(
+    `SELECT bb.*, v.name AS venue_name, vts.label AS slot_label, vts.session_kind, rb.guest_name AS linked_guest_name
+     FROM banquet_bookings bb
+     JOIN venues v ON v.id = bb.venue_id
+     LEFT JOIN venue_time_slots vts ON vts.id = bb.venue_slot_id
+     LEFT JOIN bookings rb ON rb.id = bb.linked_booking_id
+     WHERE bb.id = $1`,
+    [id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Banquet booking not found' });
+  if (!assertPropertyAccess(req.user, rows[0].property_id)) {
+    return res.status(403).json({ error: 'Property access denied' });
+  }
+  res.json({ booking: rows[0] });
+});
+
 router.patch(
   '/banquet-bookings/:id',
   param('id').isInt(),

@@ -66,10 +66,8 @@ export default function QuoteBuilderPage() {
   const banquetBookingId = searchParams.get('banquet_booking_id');
   const { selectedPropertyId } = useProperty();
 
-  const initialDocType = (searchParams.get('doc_type') as 'Quotation' | 'Contract') || 
-                         ((roomBookingId || banquetBookingId) ? 'Contract' : 'Quotation');
+  const docType = 'Quotation';
   const [status, setStatus] = useState('draft');
-  const [docType, setDocType] = useState<'Quotation' | 'Contract'>(initialDocType);
   const [clientSalutation, setClientSalutation] = useState("Dear Sir / Ma'am");
   const [validityDays, setValidityDays] = useState(7);
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -164,7 +162,6 @@ export default function QuoteBuilderPage() {
       },
     }));
     if (b.guest_email) setEmailData((prev) => ({ ...prev, to_email: b.guest_email }));
-    setDocType('Contract'); // Default to Contract for existing bookings
     setPrefillDone(true);
   }, [roomBooking, isEditing, prefillDone]);
 
@@ -189,7 +186,6 @@ export default function QuoteBuilderPage() {
         package_type: b.menu_package ?? 'Standard',
       },
     }));
-    setDocType('Contract'); // Default to Contract for existing bookings
     setPrefillDone(true);
   }, [banquetBooking, isEditing, prefillDone]);
 
@@ -202,9 +198,6 @@ export default function QuoteBuilderPage() {
       setStatus(existingQuote.status || 'draft');
       if (existingQuote.financial_summary?.items) {
         setItems(existingQuote.financial_summary.items);
-      }
-      if (existingQuote.financial_summary?.doc_type) {
-        setDocType(existingQuote.financial_summary.doc_type);
       }
       if (existingQuote.policies) {
 
@@ -346,17 +339,8 @@ export default function QuoteBuilderPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate max-w-[200px] sm:max-w-none">
-                {isEditing ? `Edit ${docType} ${existingQuote?.quotation_number}` : `Create New ${docType}`}
+                {isEditing ? `Edit Quotation ${existingQuote?.quotation_number}` : `Create New Quotation`}
               </h1>
-              <Select value={docType} onValueChange={(v: any) => setDocType(v)}>
-                <SelectTrigger className="w-32 h-8 border-none bg-indigo-50 text-indigo-700 font-medium">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Quotation">Quotation</SelectItem>
-                  <SelectItem value="Contract">Contract</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <p className="text-sm text-gray-500 mt-1">Configure line items and generate shareable links.</p>
           </div>

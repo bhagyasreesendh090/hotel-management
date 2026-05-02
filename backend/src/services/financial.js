@@ -12,9 +12,17 @@ export function splitCgstSgst(gstPercent) {
   return { cgstPct: half, sgstPct: half };
 }
 
-export function calcLineAmounts({ nightlyRate, nights, pax, gstPct }) {
-  const sub = Number(nightlyRate) * Number(nights) * Number(pax);
+export function calcLineAmounts({ nightlyRate, nights, pax, mealPlanRate = 0, extraCharges = 0, gstPct }) {
+  // Room subtotal: nightlyRate is per room per night
+  const roomSub = Number(nightlyRate) * Number(nights);
+  
+  // Meal plan subtotal: per person per night
+  const mealSub = Number(mealPlanRate) * Number(pax) * Number(nights);
+  
+  // Total taxable subtotal
+  const sub = roomSub + mealSub + Number(extraCharges);
   const gst = (sub * Number(gstPct)) / 100;
+  
   return {
     line_sub_total: round2(sub),
     line_gst: round2(gst),

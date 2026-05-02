@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import {
   CalendarDays, LayoutGrid, Plus, UtensilsCrossed, Search, Edit2, Trash2,
   X, Check, ChevronDown, IndianRupee, Users, Tag, PlusCircle, Send,
-  Building2, Clock3, ClipboardList, Sparkles, MapPin, CircleDot, CalendarCheck,
+  Building2, Clock3, ClipboardList, Sparkles, MapPin, CircleDot, CalendarCheck, FileText
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -102,24 +102,24 @@ const emptyForm = {
 };
 
 const slotToneClasses: Record<string, string> = {
-  red:   'border-l-rose-400   bg-rose-50   text-rose-800',
+  red: 'border-l-rose-400   bg-rose-50   text-rose-800',
   amber: 'border-l-amber-400  bg-amber-50  text-amber-900',
-  blue:  'border-l-blue-500   bg-blue-50   text-blue-800',
+  blue: 'border-l-blue-500   bg-blue-50   text-blue-800',
 };
 
 const slotPillDot: Record<string, string> = {
-  red:   'bg-rose-400',
+  red: 'bg-rose-400',
   amber: 'bg-amber-400',
-  blue:  'bg-blue-500',
+  blue: 'bg-blue-500',
 };
 
 const statusToneClasses: Record<string, string> = {
-  INQ:       'bg-slate-100 text-slate-700',
-  'QTN-HOLD':'bg-rose-100  text-rose-700',
-  TENT:      'bg-amber-100 text-amber-800',
-  'CONF-U':  'bg-blue-100  text-blue-700',
-  'CONF-P':  'bg-emerald-100 text-emerald-700',
-  CXL:       'bg-red-100   text-red-700',
+  INQ: 'bg-slate-100 text-slate-700',
+  'QTN-HOLD': 'bg-rose-100  text-rose-700',
+  TENT: 'bg-amber-100 text-amber-800',
+  'CONF-U': 'bg-blue-100  text-blue-700',
+  'CONF-P': 'bg-emerald-100 text-emerald-700',
+  CXL: 'bg-red-100   text-red-700',
 };
 
 const venueTypeLabel: Record<string, string> = {
@@ -276,13 +276,26 @@ export default function BanquetBookingsPage() {
   const guaranteedPax = Number(form.guaranteed_pax || 0);
   const baseRate = Number(form.publish_rate || selectedPackage?.per_plate_rate || 0);
   const discountPct = Number(form.discount_pct || 0);
-  const netPerPlate = Number(form.per_plate_rate || (baseRate - (baseRate * discountPct) / 100) || 0);
+  
+  // Logic: If manual net rate is provided, use it; otherwise calculate from discount
+  let netPerPlate = 0;
+  if (form.per_plate_rate) {
+    netPerPlate = Number(form.per_plate_rate);
+  } else {
+    netPerPlate = baseRate - (baseRate * discountPct) / 100;
+  }
+  netPerPlate = Math.round(netPerPlate * 100) / 100;
+
   const hallCharges = Number(form.hall_charges || 0);
   const venueCharges = Number(form.venue_charges || 0);
-  const taxableAmount = netPerPlate * guaranteedPax + hallCharges + venueCharges;
-  const gstPct = form.banquet_type === 'with_room' ? 18 : 5;
-  const gstAmount = taxableAmount * (gstPct / 100);
-  const grossAmount = taxableAmount + gstAmount;
+  const taxableAmount = Math.round(((netPerPlate * guaranteedPax) + hallCharges + venueCharges) * 100) / 100;
+
+  // Use GST from metadata for the selected banquet type
+  const selectedBanquetType = metadata?.banquet_types.find(t => t.value === form.banquet_type);
+  const gstPct = selectedBanquetType ? selectedBanquetType.gst_percent : (form.banquet_type === 'with_room' ? 18 : 5);
+  
+  const gstAmount = Math.round((taxableAmount * (gstPct / 100)) * 100) / 100;
+  const grossAmount = Math.round((taxableAmount + gstAmount) * 100) / 100;
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof form) => {
@@ -467,27 +480,27 @@ export default function BanquetBookingsPage() {
               <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                 <CalendarDays className="h-5 w-5 text-slate-500" />
                 <span className="text-sm font-medium text-slate-700">Event Date</span>
-              <Input
-                id="availability_date"
-                type="date"
-                value={availabilityDate}
-                onChange={(e) => setAvailabilityDate(e.target.value)}
+                <Input
+                  id="availability_date"
+                  type="date"
+                  value={availabilityDate}
+                  onChange={(e) => setAvailabilityDate(e.target.value)}
                   className="h-8 w-40 rounded-md border-slate-200 bg-white text-sm"
-              />
-            </div>
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-                Open / Enquiry
-              </span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
+                  Open / Enquiry
+                </span>
                 <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                Tentative
-              </span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                  Tentative
+                </span>
                 <span className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-                <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                Confirmed
-              </span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                  Confirmed
+                </span>
               </div>
             </div>
           </div>
@@ -576,7 +589,7 @@ export default function BanquetBookingsPage() {
                           {/* Event info or CTA */}
                           <span className="rounded-lg bg-white/60 px-2.5 py-1.5 text-xs font-medium opacity-90">
                             {session.booking_id
-                              ? (session as any).linked_guest_name 
+                              ? (session as any).linked_guest_name
                                 ? `With Room: ${(session as any).linked_guest_name}`
                                 : `${titleize(session.event_category)} / ${titleize(session.event_sub_type)}`
                               : isBlocked ? 'Fully booked' : '+ Create booking'}
@@ -682,7 +695,7 @@ export default function BanquetBookingsPage() {
                                 <Button
                                   variant="ghost" size="sm"
                                   title="Send Quotation"
-                                  disabled={['QTN-HOLD','CONF-U','CONF-P'].includes(String(booking.status))}
+                                  disabled={['QTN-HOLD', 'CONF-U', 'CONF-P'].includes(String(booking.status))}
                                   onClick={() => {
                                     const params = new URLSearchParams();
                                     params.set('banquet_booking_id', String(booking.id));
@@ -915,9 +928,8 @@ export default function BanquetBookingsPage() {
                               : [...editingPkg.event_categories, cat as EventCategory];
                             setEditingPkg({ ...editingPkg, event_categories: next });
                           }}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                            active ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-600 hover:border-slate-500'
-                          }`}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition ${active ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-300 text-slate-600 hover:border-slate-500'
+                            }`}
                         >
                           {titleize(cat)}
                         </button>
@@ -1174,7 +1186,8 @@ export default function BanquetBookingsPage() {
                           setForm({
                             ...form,
                             menu_package: value,
-                            per_plate_rate: pkg?.per_plate_rate ? String(pkg.per_plate_rate) : form.per_plate_rate,
+                            per_plate_rate: '', // Clear manual override when changing package
+                            discount_pct: '',   // Clear discount when changing package
                             publish_rate: pkg?.per_plate_rate ? String(pkg.per_plate_rate) : form.publish_rate,
                           });
                         }}
@@ -1197,11 +1210,20 @@ export default function BanquetBookingsPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Net Per Plate</Label>
-                        <Input type="number" min="0" value={form.per_plate_rate} onChange={(e) => setForm({ ...form, per_plate_rate: e.target.value })} />
+                        <Input 
+                          type="number" min="0" 
+                          value={form.per_plate_rate} 
+                          onChange={(e) => setForm({ ...form, per_plate_rate: e.target.value, discount_pct: '' })} 
+                          placeholder="Manual override"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Discount %</Label>
-                        <Input type="number" min="0" max="100" value={form.discount_pct} onChange={(e) => setForm({ ...form, discount_pct: e.target.value })} />
+                        <Input 
+                          type="number" min="0" max="100" 
+                          value={form.discount_pct} 
+                          onChange={(e) => setForm({ ...form, discount_pct: e.target.value, per_plate_rate: '' })} 
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label>Hall Charges</Label>
@@ -1267,8 +1289,8 @@ export default function BanquetBookingsPage() {
               <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
                 disabled={createMutation.isPending}
               >
