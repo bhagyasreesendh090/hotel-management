@@ -16,6 +16,9 @@ import {
   ChevronRight,
   BarChart3,
   Activity,
+  UserCog,
+  ShieldCheck,
+  History,
 } from 'lucide-react';
 
 
@@ -120,6 +123,21 @@ const Sidebar: React.FC = () => {
       icon: <Users className="w-5 h-5" />,
     },
   ];
+  
+  const adminItems: NavItem[] = [
+    {
+      to: '/admin/users',
+      label: 'User Management',
+      icon: <UserCog className="w-5 h-5" />,
+      roles: ['super_admin'],
+    },
+    {
+      to: '/admin/logs',
+      label: 'Audit Logs',
+      icon: <History className="w-5 h-5" />,
+      roles: ['super_admin'],
+    },
+  ];
 
 
   const canAccessItem = (item: NavItem) => {
@@ -216,6 +234,7 @@ const Sidebar: React.FC = () => {
           {renderNavSection('CRM', crmItems)}
           {renderNavSection('Banquet', banquetItems)}
           {renderNavSection('Corporate', corporateItems)}
+          {renderNavSection('Administration', adminItems)}
         </div>
       </div>
     </aside>

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import {
   CalendarDays, LayoutGrid, Plus, UtensilsCrossed, Search, Edit2, Trash2,
   X, Check, ChevronDown, IndianRupee, Users, Tag, PlusCircle, Send,
-  Building2, Clock3, ClipboardList, Sparkles, MapPin, CircleDot, CalendarCheck, FileText
+  Building2, Clock3, ClipboardList, Sparkles, MapPin, CircleDot, CalendarCheck, FileText, FileSignature
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import { useProperty } from '../../context/PropertyContext';
@@ -98,6 +98,8 @@ const emptyForm = {
   hall_charges: '',
   venue_charges: '',
   per_plate_rate: '',
+  room_type_id: '',
+  room_count: '0',
   notes: '',
 };
 
@@ -252,6 +254,17 @@ export default function BanquetBookingsPage() {
     enabled: !!selectedPropertyId,
   });
 
+  const { data: roomTypes = [] } = useQuery({
+    queryKey: ['roomTypes', selectedPropertyId],
+    queryFn: async () => {
+      const response = await apiClient.get<{ room_types: any[] }>('/api/crs/room-types', {
+        params: { property_id: selectedPropertyId },
+      });
+      return response.data.room_types ?? [];
+    },
+    enabled: !!selectedPropertyId,
+  });
+
 
   const availableSlotsForVenue = useMemo(
     () => slots.filter((slot) => String(slot.venue_id) === form.venue_id),
@@ -288,11 +301,17 @@ export default function BanquetBookingsPage() {
 
   const hallCharges = Number(form.hall_charges || 0);
   const venueCharges = Number(form.venue_charges || 0);
-  const taxableAmount = Math.round(((netPerPlate * guaranteedPax) + hallCharges + venueCharges) * 100) / 100;
+  
+  const selectedRoomType = roomTypes.find((rt: any) => String(rt.id) === form.room_type_id);
+  const roomBaseRate = selectedRoomType ? Number(selectedRoomType.base_rate_rbi) : 0;
+  const roomRevenue = Number(form.room_count || 0) * roomBaseRate;
+  
+  const taxableAmount = Math.round(((netPerPlate * guaranteedPax) + hallCharges + venueCharges + roomRevenue) * 100) / 100;
 
   // Use GST from metadata for the selected banquet type
   const selectedBanquetType = metadata?.banquet_types.find(t => t.value === form.banquet_type);
-  const gstPct = selectedBanquetType ? selectedBanquetType.gst_percent : (form.banquet_type === 'with_room' ? 18 : 5);
+  const gstPct = selectedBanquetType ? selectedBanquetType.gst_percent : 
+                (form.banquet_type === 'with_room' ? (netPerPlate <= 7500 ? 5 : 18) : 5);
   
   const gstAmount = Math.round((taxableAmount * (gstPct / 100)) * 100) / 100;
   const grossAmount = Math.round((taxableAmount + gstAmount) * 100) / 100;
@@ -317,6 +336,11 @@ export default function BanquetBookingsPage() {
           venue_charges: venueCharges,
           per_plate_rate: netPerPlate,
           package_code: data.menu_package,
+          room_block: {
+            room_type_id: data.room_type_id,
+            room_count: Number(data.room_count),
+            room_rate: roomBaseRate,
+          },
           notes: data.notes || null,
         },
       });
@@ -693,8 +717,22 @@ export default function BanquetBookingsPage() {
                             {booking.status !== 'CXL' && (
                               <div className="flex items-center justify-end gap-1">
                                 <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set('banquet_booking_id', String(booking.id));
+                                    if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
+                                    navigate(`/crm/contracts/new?${params.toString()}`);
+                                  }}
+                                  className="hover:bg-emerald-50"
+                                  title="Generate Formal Banquet Contract (Primary)"
+                                >
+                                  <FileSignature className="h-4 w-4 text-emerald-600" />
+                                </Button>
+                                <Button
                                   variant="ghost" size="sm"
-                                  title="Send Quotation"
+                                  title="Send Draft Quotation (Optional)"
                                   disabled={['QTN-HOLD', 'CONF-U', 'CONF-P'].includes(String(booking.status))}
                                   onClick={() => {
                                     const params = new URLSearchParams();
@@ -702,24 +740,10 @@ export default function BanquetBookingsPage() {
                                     if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
                                     navigate(`/crm/quotes/new?${params.toString()}`);
                                   }}
+                                  className="hover:bg-indigo-50"
                                 >
-                                  <Send className="h-4 w-4 text-indigo-600" />
+                                  <FileText className="h-4 w-4 text-indigo-400" />
                                 </Button>
-                                {['CONF-U', 'CONF-P', 'TENT'].includes(String(booking.status)) && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      const params = new URLSearchParams();
-                                      params.set('banquet_booking_id', String(booking.id));
-                                      if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
-                                      navigate(`/crm/contracts/new?${params.toString()}`);
-                                    }}
-                                    title="Generate Contract"
-                                  >
-                                    <FileText className="h-4 w-4 text-emerald-600" />
-                                  </Button>
-                                )}
                                 <Button variant="ghost" size="sm" onClick={() => openEdit(booking)}>
                                   Update
                                 </Button>
@@ -1138,33 +1162,59 @@ export default function BanquetBookingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Guaranteed PAX</Label>
-                      <Input type="number" min="1" value={form.guaranteed_pax} onChange={(e) => setForm({ ...form, guaranteed_pax: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Linked Room Booking</Label>
-                      <Select
-                        disabled={form.banquet_type !== 'with_room'}
-                        value={form.linked_booking_id}
-                        onValueChange={(value) => setForm({ ...form, linked_booking_id: value })}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={form.banquet_type === 'with_room' ? "Select room booking" : "Only for with room"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {roomBookings
-                            .filter(b => b.status !== 'CXL')
-                            .map((b) => (
-                              <SelectItem key={b.id} value={String(b.id)}>
-                                #{b.id} - {b.guest_name} ({b.check_in ? format(new Date(b.check_in), 'MMM dd') : ''})
-                              </SelectItem>
-                            ))}
-                          {roomBookings.length === 0 && (
-                            <SelectItem value="none" disabled>No active room bookings</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-4 col-span-1 md:col-span-2 xl:col-span-4 border-t border-slate-100 pt-4 mt-2">
+                      <div className="flex items-center justify-between">
+                         <Label className="text-sm font-bold text-slate-900">Room Block Configuration</Label>
+                         <Badge variant="outline" className={form.banquet_type === 'with_room' ? 'bg-indigo-50 text-indigo-700' : 'opacity-50'}>
+                           {form.banquet_type === 'with_room' ? 'Enabled' : 'Disabled'}
+                         </Badge>
+                      </div>
+                      
+                      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label>Room Type</Label>
+                          <Select 
+                            disabled={form.banquet_type !== 'with_room'}
+                            value={form.room_type_id} 
+                            onValueChange={(v) => {
+                              const rt = roomTypes.find((t: any) => String(t.id) === v);
+                              setForm({ 
+                                ...form, 
+                                room_type_id: v,
+                                room_rate: rt ? String(rt.base_rate_rbi) : form.room_rate 
+                              });
+                            }}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                            <SelectContent>
+                              {roomTypes.map((rt: any) => (
+                                <SelectItem key={rt.id} value={String(rt.id)}>{rt.category} - ₹{rt.base_rate_rbi}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Total Rooms Required</Label>
+                          <Input 
+                            type="number" min="0" 
+                            disabled={form.banquet_type !== 'with_room'}
+                            value={form.room_count} 
+                            onChange={(e) => setForm({ ...form, room_count: e.target.value })} 
+                            placeholder="e.g. 50"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Standard Nightly Rate</Label>
+                          <div className="h-10 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700 flex items-center">
+                            ₹{roomBaseRate.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      </div>
+                      {form.room_count !== '0' && roomBaseRate > 0 && (
+                        <p className="text-[10px] text-slate-500 italic">
+                          * This will allocate a block of {form.room_count} rooms at the standard rate of ₹{roomBaseRate}/night.
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1205,26 +1255,24 @@ export default function BanquetBookingsPage() {
 
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Publish Rate / Plate</Label>
-                        <Input type="number" min="0" value={form.publish_rate} onChange={(e) => setForm({ ...form, publish_rate: e.target.value })} />
+                        <Label>Rate Per Plate (Standard)</Label>
+                        <div className="h-10 px-3 py-2 rounded-md border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-900 flex items-center">
+                          ₹{Number(form.publish_rate || 0).toLocaleString('en-IN')}
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Net Per Plate</Label>
-                        <Input 
-                          type="number" min="0" 
-                          value={form.per_plate_rate} 
-                          onChange={(e) => setForm({ ...form, per_plate_rate: e.target.value, discount_pct: '' })} 
-                          placeholder="Manual override"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Discount %</Label>
-                        <Input 
-                          type="number" min="0" max="100" 
-                          value={form.discount_pct} 
-                          onChange={(e) => setForm({ ...form, discount_pct: e.target.value, per_plate_rate: '' })} 
-                        />
-                      </div>
+
+                      {form.menu_package === 'custom' && (
+                        <div className="space-y-2">
+                          <Label>Custom Net Per Plate</Label>
+                          <Input 
+                            type="number" min="0" 
+                            value={form.per_plate_rate} 
+                            onChange={(e) => setForm({ ...form, per_plate_rate: e.target.value })} 
+                            placeholder="Manual rate"
+                          />
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         <Label>Hall Charges</Label>
                         <Input type="number" min="0" value={form.hall_charges} onChange={(e) => setForm({ ...form, hall_charges: e.target.value })} />

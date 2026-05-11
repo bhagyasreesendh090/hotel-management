@@ -35,7 +35,8 @@ export default defineConfig({
   assetsInclude: ['**/*.svg', '**/*.csv'],
 
   server: {
-    host: true, // bind to 0.0.0.0 so the dev server is accessible on the network
+    host: '0.0.0.0', // bind to 0.0.0.0 so the dev server is accessible on the network
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:4000',

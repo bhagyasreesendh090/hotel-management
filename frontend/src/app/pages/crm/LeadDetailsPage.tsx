@@ -12,8 +12,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { 
+  ArrowLeft, 
+  Plus, 
+  CheckCircle, 
+  FileText, 
+  FileSignature, 
+  Calendar, 
+  Mail, 
+  History 
+} from 'lucide-react';
 
 interface ActionPoint {
   id: number;
@@ -51,6 +60,7 @@ const LeadDetailsPage: React.FC = () => {
 
   const leadData = data?.lead;
   const quotations = data?.quotations || [];
+  const contracts = data?.contracts || [];
 
   const { data: actionPoints } = useQuery({
     queryKey: ['actionPoints', id],
@@ -176,9 +186,10 @@ const LeadDetailsPage: React.FC = () => {
       </div>
 
       <Tabs defaultValue="actions">
-        <TabsList>
-          <TabsTrigger value="actions">Action Points</TabsTrigger>
-          <TabsTrigger value="quotations">Quotations</TabsTrigger>
+        <TabsList className="bg-stone-100 p-1 rounded-xl">
+          <TabsTrigger value="actions" className="rounded-lg">Action Points</TabsTrigger>
+          <TabsTrigger value="quotations" className="rounded-lg">Room Quotations</TabsTrigger>
+          <TabsTrigger value="contracts" className="rounded-lg">Banquet Contracts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="actions">
@@ -228,10 +239,16 @@ const LeadDetailsPage: React.FC = () => {
         <TabsContent value="quotations">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Quotations</CardTitle>
-              <Button onClick={() => navigate(`/crm/quotes/new?lead_id=${id}`)}>
+              <div>
+                <CardTitle>Room Quotations</CardTitle>
+                <p className="text-xs text-stone-500 mt-1">Best for room blocks and individual stay proposals.</p>
+              </div>
+              <Button 
+                onClick={() => navigate(`/crm/quotes/new?lead_id=${id}`)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full"
+              >
                 <Plus className="w-4 h-4 mr-2" />
-                Build Quotation
+                Build Room Quotation
               </Button>
             </CardHeader>
             <CardContent>
@@ -260,6 +277,57 @@ const LeadDetailsPage: React.FC = () => {
                   ))
                 ) : (
                   <p className="text-gray-500 text-center py-8">No quotations created yet</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="contracts">
+          <Card className="rounded-[24px] border-stone-200/80 shadow-sm overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Banquet Contracts</CardTitle>
+                <p className="text-xs text-stone-500 mt-1">Formal legal agreements for venues and catering.</p>
+              </div>
+              <Button 
+                onClick={() => navigate(`/crm/contracts/new?lead_id=${id}`)}
+                className="bg-stone-950 hover:bg-black text-white rounded-full"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Build Banquet Contract
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {contracts.length > 0 ? (
+                  contracts.map((contract: any) => (
+                    <div key={contract.id} className="flex items-center justify-between p-4 bg-stone-50/50 rounded-2xl border border-stone-200/60">
+                      <div className="flex-1">
+                         <div className="flex items-center gap-2">
+                           <p className="font-bold text-stone-900">{contract.contract_number}</p>
+                           <Badge variant="secondary" className="bg-white text-[10px] font-bold uppercase tracking-wider border-stone-200">
+                             {contract.status}
+                           </Badge>
+                         </div>
+                         <p className="text-xs text-stone-500 mt-1 flex items-center gap-2">
+                           <Calendar className="h-3 w-3" />
+                           ₹{Number(contract.total_value).toLocaleString('en-IN')} • Signed: {contract.signed_at ? format(new Date(contract.signed_at), 'MMM dd') : 'Pending'}
+                         </p>
+                      </div>
+                      <div className="flex gap-2">
+                         {contract.secure_token && (
+                            <Button variant="ghost" size="sm" className="text-stone-600 hover:text-stone-900" onClick={() => window.open(`/public/contract/${contract.secure_token}`, '_blank')}>
+                              Preview
+                            </Button>
+                         )}
+                         <Button variant="outline" size="sm" className="rounded-full border-stone-200" onClick={() => navigate(`/crm/contracts/${contract.id}/edit?lead_id=${id}`)}>
+                            Edit
+                         </Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-stone-400 text-center py-12 text-sm italic">No contracts drafted yet for this event.</p>
                 )}
               </div>
             </CardContent>

@@ -1,8 +1,21 @@
 /** Matches backend FULL_APP_ACCESS_ROLES */
 const FULL_APP_ACCESS = new Set(['super_admin', 'gm', 'sales_agent']);
 
+/** Sees all properties without restriction */
+const UNRESTRICTED_PROPERTIES = new Set([
+  'super_admin',
+  'gm',
+  'sales_agent',
+  'sales_manager',
+  'finance',
+]);
+
 export function hasFullAppAccess(role: string | undefined): boolean {
   return Boolean(role && FULL_APP_ACCESS.has(role));
+}
+
+export function canAccessAllProperties(role: string | undefined): boolean {
+  return Boolean(role && UNRESTRICTED_PROPERTIES.has(role));
 }
 
 /** Sales Agent gets the simplified home; everyone else uses the leadership home */

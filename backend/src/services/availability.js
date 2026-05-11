@@ -37,12 +37,25 @@ export async function availabilityByRoomType(propertyId, rangeStart, rangeEnd) {
         AND rb.start_date < $3::date AND rb.end_date >= $2::date
       GROUP BY r.room_type_id
     ),
+    banquet_blocks AS (
+      SELECT 
+        (pricing->'room_block'->>'room_type_id')::int AS room_type_id,
+        SUM((pricing->'room_block'->>'room_count')::int)::int AS units
+      FROM banquet_bookings
+      WHERE property_id = $1
+        AND status IN ('QTN-HOLD','TENT','CONF-U','CONF-P')
+        AND event_date < $3::date AND event_date >= $2::date
+        AND pricing->'room_block'->>'room_type_id' IS NOT NULL
+      GROUP BY 1
+    ),
     blocks_merged AS (
       SELECT room_type_id, SUM(n)::int AS blocked_units
       FROM (
-        SELECT * FROM type_blocks
+        SELECT room_type_id, n FROM type_blocks
         UNION ALL
-        SELECT * FROM room_blocks_by_type
+        SELECT room_type_id, n FROM room_blocks_by_type
+        UNION ALL
+        SELECT room_type_id, units FROM banquet_blocks
       ) u
       GROUP BY room_type_id
     ),
@@ -130,12 +143,26 @@ export async function availabilityCalendarByRoomType(propertyId, rangeStart, ran
       WHERE rb.property_id = $1
       GROUP BY r.room_type_id, d.day
     ),
+    banquet_blocks AS (
+      SELECT
+        (bb.pricing->'room_block'->>'room_type_id')::int AS room_type_id,
+        d.day,
+        SUM((bb.pricing->'room_block'->>'room_count')::int)::int AS units
+      FROM banquet_bookings bb
+      JOIN days d ON bb.event_date = d.day
+      WHERE bb.property_id = $1
+        AND bb.status IN ('QTN-HOLD','TENT','CONF-U','CONF-P')
+        AND bb.pricing->'room_block'->>'room_type_id' IS NOT NULL
+      GROUP BY 1, 2
+    ),
     blocks AS (
       SELECT room_type_id, day, SUM(blocked_units)::int AS blocked_units
       FROM (
-        SELECT * FROM type_blocks
+        SELECT room_type_id, day, blocked_units FROM type_blocks
         UNION ALL
-        SELECT * FROM room_blocks_by_type
+        SELECT room_type_id, day, blocked_units FROM room_blocks_by_type
+        UNION ALL
+        SELECT room_type_id, day, units FROM banquet_blocks
       ) merged
       GROUP BY room_type_id, day
     )
@@ -214,12 +241,25 @@ export async function roomTypeMinimumAvailability(propertyId, roomTypeId, rangeS
         AND r.room_type_id = $2
       GROUP BY d.day
     ),
+    banquet_blocks AS (
+      SELECT
+        d.day,
+        SUM((bb.pricing->'room_block'->>'room_count')::int)::int AS units
+      FROM banquet_bookings bb
+      JOIN days d ON bb.event_date = d.day
+      WHERE bb.property_id = $1
+        AND (bb.pricing->'room_block'->>'room_type_id')::int = $2
+        AND bb.status IN ('QTN-HOLD','TENT','CONF-U','CONF-P')
+      GROUP BY d.day
+    ),
     blocks AS (
       SELECT day, SUM(blocked_units)::int AS blocked_units
       FROM (
-        SELECT * FROM type_blocks
+        SELECT day, blocked_units FROM type_blocks
         UNION ALL
-        SELECT * FROM room_blocks_by_type
+        SELECT day, blocked_units FROM room_blocks_by_type
+        UNION ALL
+        SELECT day, units FROM banquet_blocks
       ) merged
       GROUP BY day
     )

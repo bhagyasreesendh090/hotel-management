@@ -8,7 +8,7 @@ dotenv.config();
  * Expects SMTP configuration in .env:
  * SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
  */
-export async function sendEmail({ to, cc, subject, text, html }) {
+export async function sendEmail({ to, cc, subject, text, html, attachments }) {
   // Create a transporter using SMTP
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -30,6 +30,7 @@ export async function sendEmail({ to, cc, subject, text, html }) {
     subject,
     text,
     html,
+    attachments, // Array of { filename, content, contentType }
   };
 
   try {

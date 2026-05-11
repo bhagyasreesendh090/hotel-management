@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import {
   CalendarDays,
   ClipboardList,
@@ -9,7 +10,9 @@ import {
   Users,
   UtensilsCrossed,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  History,
+  Activity,
 } from 'lucide-react';
 import {
   BarChart,
@@ -24,6 +27,15 @@ import {
 import apiClient from '../../api/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { useAuth } from '../../auth/AuthContext';
+import { canAccessAllProperties } from '../../lib/roles';
+
+interface Property {
+  id: number;
+  name: string;
+  code: string;
+}
 
 type DashboardStats = {
   bookings_created_today: number;
@@ -34,24 +46,51 @@ type DashboardStats = {
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981'];
 
 const ExecutiveDashboardPage: React.FC = () => {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['reports-dashboard'],
+  const { user } = useAuth();
+  const [selectedPropertyId, setSelectedPropertyId] = React.useState<string>('all');
+
+  const { data: properties = [] } = useQuery<Property[]>({
+    queryKey: ['properties-list'],
     queryFn: async () => {
-      const { data: d } = await apiClient.get<DashboardStats>('/api/reports/dashboard');
+      const response = await apiClient.get<{ properties: Property[] }>('/api/properties');
+      return response.data.properties;
+    },
+    enabled: canAccessAllProperties(user?.role),
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['reports-dashboard', selectedPropertyId],
+    queryFn: async () => {
+      const params = selectedPropertyId !== 'all' ? { property_id: selectedPropertyId } : {};
+      const { data: d } = await apiClient.get<DashboardStats>('/api/reports/dashboard', { params });
       return d;
     },
   });
 
   const { data: pipelineData } = useQuery({
-    queryKey: ['reports-pipeline'],
+    queryKey: ['reports-pipeline', selectedPropertyId],
     queryFn: async () => {
-      const { data: d } = await apiClient.get<{ pipeline: { pipeline_stage: string, count: number }[] }>('/api/reports/crm/pipeline');
+      const params = selectedPropertyId !== 'all' ? { property_id: selectedPropertyId } : {};
+      const { data: d } = await apiClient.get<{ pipeline: { pipeline_stage: string, count: number }[] }>('/api/reports/crm/pipeline', { params });
       return d.pipeline.map(item => ({
         name: item.pipeline_stage.replace(/_/g, ' ').toUpperCase(),
         value: item.count
       }));
     },
   });
+
+  const { data: auditLogs } = useQuery({
+    queryKey: ['recent-audit-logs'],
+    queryFn: async () => {
+      const response = await apiClient.get<{ logs: any[] }>('/api/admin/audit-logs', { params: { limit: 5 } });
+      return response.data.logs;
+    },
+    enabled: user?.role === 'super_admin',
+  });
+
+  const selectedPropertyName = selectedPropertyId === 'all' 
+    ? 'All Properties' 
+    : properties.find(p => p.id.toString() === selectedPropertyId)?.name || 'Selected Property';
 
   const stats = [
     {
@@ -92,14 +131,16 @@ const ExecutiveDashboardPage: React.FC = () => {
         
         <div className="relative flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="max-w-2xl space-y-5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-xs font-bold uppercase tracking-widest text-indigo-300">
-               <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-               Enterprise Dashboard
+            <div className="flex flex-col gap-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-400/20 text-xs font-bold uppercase tracking-widest text-indigo-300 w-fit">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                {selectedPropertyName}
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
+                Intelligence at the <br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">Speed of Business.</span>
+              </h1>
             </div>
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
-              Intelligence at the <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">Speed of Business.</span>
-            </h1>
             <p className="text-lg text-slate-300 leading-relaxed max-w-xl font-light">
               Real-time analytics across your entire property portfolio. Monitor conversion velocity, banquet utilization, and room inventory from one command center.
             </p>
@@ -120,10 +161,27 @@ const ExecutiveDashboardPage: React.FC = () => {
 
           <div className="hidden lg:block w-full max-w-xs">
              <div className="p-6 rounded-[2rem] bg-white/5 backdrop-blur-xl border border-white/10 shadow-inner">
-                <div className="flex justify-between items-center mb-6">
-                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Channels</p>
-                   <div className="h-2 w-2 rounded-full bg-green-400" />
+                <div className="flex justify-between items-center mb-4">
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Property Control</p>
+                   <Hotel className="h-4 w-4 text-indigo-400" />
                 </div>
+                
+                {canAccessAllProperties(user?.role) && (
+                  <div className="mb-6">
+                    <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+                      <SelectTrigger className="bg-white/10 border-white/20 text-white rounded-xl focus:ring-indigo-500">
+                        <SelectValue placeholder="Select Property" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-800 text-white rounded-xl">
+                        <SelectItem value="all">All Properties</SelectItem>
+                        {properties.map(p => (
+                          <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                    {[
                      { label: 'Direct Web', val: '64%', color: 'bg-indigo-500' },
@@ -245,6 +303,47 @@ const ExecutiveDashboardPage: React.FC = () => {
                 </Link>
               ))}
            </div>
+
+           {user?.role === 'super_admin' && (
+             <Card className="border-0 bg-white shadow-xl shadow-slate-200/40 rounded-[2rem] overflow-hidden mt-8">
+               <CardHeader className="border-b border-slate-50 p-6 flex flex-row items-center justify-between">
+                 <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-tight">Recent Activity</CardTitle>
+                 <History className="h-4 w-4 text-slate-400" />
+               </CardHeader>
+               <CardContent className="p-0">
+                 <div className="divide-y divide-slate-50">
+                    {auditLogs?.map((log: any) => (
+                      <div key={log.id} className="p-4 flex items-center gap-3 hover:bg-slate-50/50 transition-colors">
+                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          log.action === 'create' ? 'bg-emerald-50 text-emerald-600' :
+                          log.action === 'delete' ? 'bg-rose-50 text-rose-600' :
+                          'bg-blue-50 text-blue-600'
+                        }`}>
+                          {log.action.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate uppercase tracking-tighter">
+                            {log.user_name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {log.action} {log.entity} #{log.entity_id}
+                          </p>
+                        </div>
+                        <span className="ml-auto text-[9px] font-bold text-slate-400 whitespace-nowrap">
+                          {format(new Date(log.created_at), 'HH:mm')}
+                        </span>
+                      </div>
+                    ))}
+                    {(!auditLogs || auditLogs.length === 0) && (
+                      <p className="p-8 text-center text-xs text-slate-400">No recent activity.</p>
+                    )}
+                 </div>
+                 <Button asChild variant="ghost" className="w-full rounded-none h-10 text-[10px] font-bold text-indigo-600 hover:bg-slate-50 border-t border-slate-50">
+                    <Link to="/admin/logs">VIEW FULL AUDIT TRAIL</Link>
+                 </Button>
+               </CardContent>
+             </Card>
+           )}
         </div>
       </div>
 

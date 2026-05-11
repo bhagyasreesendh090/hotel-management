@@ -44,15 +44,29 @@ function monthStart(monthValue: string) {
 
 const AvailabilityPage: React.FC = () => {
   const { selectedProperty, selectedPropertyId } = useProperty();
-  const [month, setMonth] = useState(() => toMonthValue(new Date()));
+  const [filterType, setFilterType] = useState<'month' | 'year' | 'custom'>('month');
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState(() => (new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [customStart, setCustomStart] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [customEnd, setCustomEnd] = useState(() => format(addMonths(new Date(), 1), 'yyyy-MM-dd'));
 
   const { data, isLoading, isError } = useQuery<AvailabilityResponse>({
-    queryKey: ['crm-availability-matrix', selectedPropertyId, selectedProperty?.code, month],
+    queryKey: ['crm-availability-matrix', selectedPropertyId, selectedProperty?.code, filterType, selectedYear, selectedMonth, customStart, customEnd],
     enabled: Boolean(selectedProperty?.code),
     queryFn: async () => {
+      const params: any = {};
+      if (filterType === 'month') {
+        params.month = `${selectedYear}-${selectedMonth}`;
+      } else if (filterType === 'year') {
+        params.startDate = `${selectedYear}-01-01`;
+        params.endDate = `${selectedYear}-12-31`;
+      } else {
+        params.startDate = customStart;
+        params.endDate = customEnd;
+      }
       const response = await apiClient.get<AvailabilityResponse>(
         `/api/public/properties/${selectedProperty?.code}/monthly-availability`,
-        { params: { month } }
+        { params }
       );
       return response.data;
     },
@@ -60,6 +74,11 @@ const AvailabilityPage: React.FC = () => {
 
   const summary = data?.summary ?? [];
   const roomTypes = data?.room_types ?? [];
+  const displayRange = filterType === 'month' 
+    ? format(new Date(Number(selectedYear), Number(selectedMonth) - 1, 1), 'MMMM yyyy')
+    : filterType === 'year'
+      ? `Full Year ${selectedYear}`
+      : `${format(new Date(customStart), 'dd MMM yyyy')} - ${format(new Date(customEnd), 'dd MMM yyyy')}`;
 
   return (
     <div className="space-y-6">
@@ -79,8 +98,8 @@ const AvailabilityPage: React.FC = () => {
             <div className="flex items-center gap-3">
               <CalendarRange className="h-5 w-5 text-amber-300" />
               <div>
-                <p className="text-sm text-stone-300">Current month</p>
-                <p className="text-2xl font-semibold">{format(monthStart(month), 'MMMM yyyy')}</p>
+                <p className="text-sm text-stone-300">View range</p>
+                <p className="text-2xl font-semibold">{displayRange}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -100,28 +119,124 @@ const AvailabilityPage: React.FC = () => {
       <Card className="overflow-hidden rounded-[28px] border-stone-200/80 shadow-sm">
         <CardContent className="p-0">
           <div className="flex flex-col gap-4 border-b border-stone-200/80 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">Property Availability</p>
-              <h2 className="mt-2 text-2xl font-semibold text-stone-950">{format(monthStart(month), 'MMMM yyyy')}</h2>
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">Property Availability</p>
+                <h2 className="mt-2 text-2xl font-semibold text-stone-950">{displayRange}</h2>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex rounded-lg border border-stone-200 bg-stone-50 p-1">
+                  <button
+                    onClick={() => setFilterType('month')}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      filterType === 'month' ? 'bg-white text-stone-950 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setFilterType('year')}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      filterType === 'year' ? 'bg-white text-stone-950 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+                    }`}
+                  >
+                    Yearly
+                  </button>
+                  <button
+                    onClick={() => setFilterType('custom')}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      filterType === 'custom' ? 'bg-white text-stone-950 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+                    }`}
+                  >
+                    Custom Range
+                  </button>
+                </div>
+
+                {filterType === 'month' || filterType === 'year' ? (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20"
+                    >
+                      {[2024, 2025, 2026, 2027].map((y) => (
+                        <option key={y} value={y.toString()}>{y}</option>
+                      ))}
+                    </select>
+                    {filterType === 'month' && (
+                      <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => {
+                          const m = (i + 1).toString().padStart(2, '0');
+                          return (
+                            <option key={m} value={m}>
+                              {format(new Date(2000, i, 1), 'MMMM')}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={customStart}
+                      onChange={(e) => setCustomStart(e.target.value)}
+                      className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                    <span className="text-stone-400">to</span>
+                    <input
+                      type="date"
+                      value={customEnd}
+                      onChange={(e) => setCustomEnd(e.target.value)}
+                      className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="border-stone-300 bg-transparent"
-                onClick={() => setMonth(toMonthValue(addMonths(monthStart(month), -1)))}
+                className="h-9 border-stone-300 bg-transparent px-3"
+                onClick={() => {
+                  if (filterType === 'month') {
+                    const current = new Date(Number(selectedYear), Number(selectedMonth) - 1, 1);
+                    const prev = addMonths(current, -1);
+                    setSelectedYear(prev.getFullYear().toString());
+                    setSelectedMonth((prev.getMonth() + 1).toString().padStart(2, '0'));
+                  } else if (filterType === 'year') {
+                    setSelectedYear((Number(selectedYear) - 1).toString());
+                  }
+                }}
+                disabled={filterType === 'custom'}
               >
-                <ChevronLeft className="mr-2 h-4 w-4" />
+                <ChevronLeft className="mr-1 h-4 w-4" />
                 Prev
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="border-stone-300 bg-transparent"
-                onClick={() => setMonth(toMonthValue(addMonths(monthStart(month), 1)))}
+                className="h-9 border-stone-300 bg-transparent px-3"
+                onClick={() => {
+                  if (filterType === 'month') {
+                    const current = new Date(Number(selectedYear), Number(selectedMonth) - 1, 1);
+                    const next = addMonths(current, 1);
+                    setSelectedYear(next.getFullYear().toString());
+                    setSelectedMonth((next.getMonth() + 1).toString().padStart(2, '0'));
+                  } else if (filterType === 'year') {
+                    setSelectedYear((Number(selectedYear) + 1).toString());
+                  }
+                }}
+                disabled={filterType === 'custom'}
               >
                 Next
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
             </div>
           </div>

@@ -11,6 +11,8 @@ import financeRoutes from './routes/finance.js';
 import reportsRoutes from './routes/reports.js';
 import publicRoutes from './routes/public.js';
 import mealRoutes from './routes/meals.js';
+import userRoutes from './routes/users.js';
+import adminRoutes from './routes/admin.js';
 
 export function createApp() {
   const app = express();
@@ -31,6 +33,8 @@ export function createApp() {
   app.use('/api/finance', financeRoutes);
   app.use('/api/reports', reportsRoutes);
   app.use('/api/meal-plans', mealRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/admin', adminRoutes);
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {

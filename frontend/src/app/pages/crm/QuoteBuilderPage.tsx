@@ -145,10 +145,11 @@ export default function QuoteBuilderPage() {
     const nights = b.check_in && b.check_out
       ? Math.max(1, Math.round((new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / 86400000))
       : 1;
-    const rate = Number(b.total_amount ?? 0) / nights || 0;
+    const rate = Math.round(Number(b.total_amount ?? 0) / nights) || 0;
+    const taxRate = rate <= 7500 ? 5 : 18;
     setClientSalutation(`Dear ${b.guest_name ?? 'Valued Guest'}`);
     setItems([
-      { id: '1', description: `${b.room_types ?? 'Room'} – ${b.meal_plan ?? 'EP'} (${nights} Night${nights > 1 ? 's' : ''})`, unit_price: Math.round(rate), quantity: nights, tax_rate: 12 },
+      { id: '1', description: `${b.room_types ?? 'Room'} – ${b.meal_plan ?? 'EP'} (${nights} Night${nights > 1 ? 's' : ''})`, unit_price: rate, quantity: nights, tax_rate: taxRate },
     ]);
     setPolicies((p) => ({
       ...p,
@@ -289,7 +290,14 @@ export default function QuoteBuilderPage() {
 
   const updateItem = (index: number, changes: Partial<LineItem>) => {
     const newItems = [...items];
-    newItems[index] = { ...newItems[index], ...changes };
+    let updatedItem = { ...newItems[index], ...changes };
+    
+    // Auto-calculate GST based on unit price per SRS (≤7500 -> 5%, >7500 -> 18%)
+    if ('unit_price' in changes) {
+      updatedItem.tax_rate = updatedItem.unit_price <= 7500 ? 5 : 18;
+    }
+    
+    newItems[index] = updatedItem;
     setItems(newItems);
   };
 

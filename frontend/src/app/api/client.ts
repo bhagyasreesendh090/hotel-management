@@ -1,11 +1,9 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  // Use empty baseURL so all /api/* requests are relative to the current host.
-  // Vite's dev server proxy (vite.config.ts) will forward them to the backend
-  // on port 4000. This ensures network clients (other devices/phones) work
-  // without needing to know the server's local IP address.
-  baseURL: '',
+  // Use the environment variable for the base URL if provided (Cloudflare/Production)
+  // Otherwise, use empty baseURL so Vite proxy handles it locally.
+  baseURL: import.meta.env.VITE_API_BASE_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },

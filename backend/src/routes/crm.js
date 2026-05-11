@@ -5,6 +5,7 @@ import { requireAuth, requireRoles } from '../middleware/auth.js';
 import { writeAudit } from '../utils/audit.js';
 import { indianFinancialYearLabel } from '../services/financial.js';
 import { sendEmail } from '../utils/email.js';
+import { generateQuotationPDF, generateContractPDF } from '../utils/pdf.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -404,7 +405,11 @@ router.post(
     const { to_email, cc_email, subject, body } = req.body;
     
     // Fetch the quotation to get the secure_token for the link
-    const { rows: qRows } = await query('SELECT secure_token, quotation_number FROM quotations WHERE id = $1', [id]);
+    const { rows: qRows } = await query(`
+      SELECT q.*, u.full_name as created_by_name, u.role as created_by_role 
+      FROM quotations q 
+      LEFT JOIN users u ON q.created_by = u.id 
+      WHERE q.id = $1`, [id]);
     const quote = qRows[0];
     const leadId = quote?.lead_id;
 
@@ -412,7 +417,14 @@ router.post(
     const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
     const publicLink = `${baseUrl}/public/quote/${quote.secure_token}`;
     
-    const fullBody = `${body}\n\nView your quotation here: ${publicLink}\n\nRegards,\nHotel Pramod Team`;
+    // Fetch additional data for PDF
+    const { rows: leadRows } = await query('SELECT * FROM leads WHERE id = $1', [leadId]);
+    const { rows: propRows } = await query('SELECT * FROM properties WHERE id = (SELECT property_id FROM quotations WHERE id = $1)', [id]);
+    const fullQuote = (await query('SELECT * FROM quotations WHERE id = $1', [id])).rows[0];
+
+    const pdfBuffer = await generateQuotationPDF(fullQuote, leadRows[0], propRows[0]);
+    
+    const fullBody = `${body}\n\nView your quotation here: ${publicLink}\n\nPlease find the attached PDF version for your records.\n\nRegards,\nHotel Pramod Team`;
 
     try {
       await sendEmail({
@@ -420,7 +432,13 @@ router.post(
         cc: cc_email,
         subject: subject,
         text: fullBody,
-        // You could also generate HTML here
+        attachments: [
+          {
+            filename: `${quote.quotation_number}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+          }
+        ]
       });
     } catch (mailErr) {
       console.error('Mail delivery failed:', mailErr);
@@ -587,14 +605,25 @@ router.post(
     const { to_email, cc_email, subject, body } = req.body;
     
     // Fetch the contract to get the secure_token for the link
-    const { rows: cRows } = await query('SELECT secure_token, contract_number FROM contracts WHERE id = $1', [id]);
+    const { rows: cRows } = await query(`
+      SELECT c.*, u.full_name as updated_by_name 
+      FROM contracts c 
+      LEFT JOIN users u ON c.updated_by = u.id 
+      WHERE c.id = $1`, [id]);
     const contract = cRows[0];
 
     // Construct the public link
     const baseUrl = process.env.PUBLIC_APP_URL || 'http://localhost:5173';
     const publicLink = `${baseUrl}/public/contract/${contract.secure_token}`;
     
-    const fullBody = `${body}\n\nView and digitally sign your contract here: ${publicLink}\n\nRegards,\nHotel Pramod Team`;
+    // Fetch additional data for PDF
+    const { rows: leadRows } = await query('SELECT * FROM leads WHERE id = $1', [contract.lead_id]);
+    const { rows: propRows } = await query('SELECT * FROM properties WHERE id = $1', [contract.property_id]);
+    const fullContract = (await query('SELECT * FROM contracts WHERE id = $1', [id])).rows[0];
+
+    const pdfBuffer = await generateContractPDF(fullContract, leadRows[0], propRows[0]);
+
+    const fullBody = `${body}\n\nView and digitally sign your contract here: ${publicLink}\n\nPlease find the attached PDF version for your records.\n\nRegards,\nHotel Pramod Team`;
 
     try {
       await sendEmail({
@@ -602,6 +631,13 @@ router.post(
         cc: cc_email,
         subject: subject,
         text: fullBody,
+        attachments: [
+          {
+            filename: `${contract.contract_number}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+          }
+        ]
       });
     } catch (mailErr) {
       console.error('Contract mail delivery failed:', mailErr);

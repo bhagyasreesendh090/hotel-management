@@ -6,6 +6,8 @@ import AppLayout from '../layout/AppLayout';
 import LoginPage from '../pages/auth/LoginPage';
 import DashboardPage from '../pages/dashboard/DashboardPage';
 import PropertiesPage from '../pages/properties/PropertiesPage';
+import UserManagementPage from '../pages/admin/UserManagementPage';
+import AuditLogsPage from '../pages/admin/AuditLogsPage';
 
 // CRS Pages
 import RoomTypesPage from '../pages/crs/RoomTypesPage';
@@ -158,6 +160,15 @@ export const router = createBrowserRouter([
       {
         path: 'corporate/travel-agents',
         element: <TravelAgentsPage />,
+      },
+      // Admin Routes
+      {
+        path: 'admin/users',
+        element: <UserManagementPage />,
+      },
+      {
+        path: 'admin/logs',
+        element: <AuditLogsPage />,
       },
 
       {

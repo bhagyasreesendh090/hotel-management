@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { differenceInCalendarDays, format } from 'date-fns';
-import { CheckCircle, Edit2, Eye, FileText, Plus, Send, XCircle } from 'lucide-react';
+import { CheckCircle, Edit2, Eye, FileSignature, FileText, Plus, Send, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useProperty } from '../../context/PropertyContext';
 import apiClient from '../../api/client';
@@ -390,7 +390,8 @@ const BookingsPage: React.FC = () => {
                             if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
                             navigate(`/crm/quotes/new?${params.toString()}`);
                           }}
-                          title="Send Quotation"
+                          className="hover:bg-indigo-50"
+                          title="Generate Room Quotation (Proposal)"
                           disabled={['CONF-U', 'CONF-P', 'CI', 'CO', 'CXL'].includes(booking.status)}
                         >
                           <Send className="h-4 w-4 text-indigo-600" />
@@ -405,9 +406,10 @@ const BookingsPage: React.FC = () => {
                               if (booking.lead_id) params.set('lead_id', String(booking.lead_id));
                               navigate(`/crm/contracts/new?${params.toString()}`);
                             }}
-                            title="Generate Contract"
+                            className="hover:bg-emerald-50"
+                            title="Generate Formal Stay Contract (Optional)"
                           >
-                            <FileText className="h-4 w-4 text-emerald-600" />
+                            <FileSignature className="h-4 w-4 text-emerald-600" />
                           </Button>
                         )}
                         <Button

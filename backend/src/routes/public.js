@@ -83,18 +83,32 @@ router.get('/properties', async (_req, res) => {
 router.get(
   '/properties/:propertyRef/monthly-availability',
   param('propertyRef').isString(),
-  qv('month').matches(/^\d{4}-\d{2}$/),
+  qv('month').optional().matches(/^\d{4}-\d{2}$/),
+  qv('startDate').optional().isISO8601(),
+  qv('endDate').optional().isISO8601(),
   async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty()) {
+      console.error('Validation errors for availability:', errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
 
     const property = await resolvePropertyByRef(req.params.propertyRef);
     if (!property) return res.status(404).json({ error: 'Property not found' });
 
-    const bounds = monthBounds(req.query.month);
-    if (!bounds) return res.status(400).json({ error: 'Invalid month (use yyyy-MM)' });
+    let start, end;
+    if (req.query.startDate && req.query.endDate) {
+      start = new Date(req.query.startDate);
+      end = new Date(req.query.endDate);
+    } else {
+      const monthStr = req.query.month || ymd(new Date()).substring(0, 7);
+      const bounds = monthBounds(monthStr);
+      if (!bounds) return res.status(400).json({ error: 'Invalid month (use yyyy-MM)' });
+      start = bounds.start;
+      end = bounds.end;
+    }
 
-    const calRows = await availabilityCalendarByRoomType(property.id, bounds.start, bounds.end);
+    const calRows = await availabilityCalendarByRoomType(property.id, start, end);
 
     const summaryByDay = new Map();
     const roomTypeMap = new Map();
@@ -129,8 +143,8 @@ router.get(
     }
 
     const summary = [];
-    const cur = new Date(bounds.start);
-    while (cur <= bounds.end) {
+    const cur = new Date(start);
+    while (cur <= end) {
       const key = ymd(cur);
       summary.push(
         summaryByDay.get(key) ?? { date: key, total_available: 0, total_booked: 0, total_blocked: 0 }
@@ -146,7 +160,8 @@ router.get(
         advance_rule_note: property.advance_rule_note,
         cancellation_policy_default: property.cancellation_policy_default,
       },
-      month: req.query.month,
+      startDate: ymd(start),
+      endDate: ymd(end),
       room_types: [...roomTypeMap.values()],
       summary,
     });
